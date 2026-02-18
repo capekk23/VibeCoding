@@ -21,7 +21,7 @@
 
 body {
   font-family: 'IBM Plex Mono', monospace;
-  background: linear-gradient(135deg, #FFF8DC 0%, #FFFACD 50%, #FFE4B5 100%);
+  background: #FFF8DC;
   color: var(--text-dark);
   overflow: hidden;
   position: relative;
