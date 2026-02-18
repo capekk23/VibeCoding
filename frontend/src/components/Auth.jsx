@@ -36,7 +36,7 @@ export default function Auth({ onLogin }) {
   return (
     <div className="flex-center" style={{ height: '100vh', width: '100vw' }}>
       <div className="panel panel-magenta" style={{ width: '400px' }}>
-        <h1 style={{ textAlign: 'center' }}>✨ VIBE CHECK ✨</h1>
+        <h1 style={{ textAlign: 'center' }}>🚀 DEEP SPACE RELAY 🚀</h1>
 
         <form onSubmit={handleSubmit} className="flex-column">
           <input

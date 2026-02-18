@@ -216,17 +216,19 @@ export default function Rooms({ user }) {
                     key={msg.id}
                     className="panel"
                     style={{
-                      borderColor: msg.username === user.username ? '#8B7355' : '#9B8B7E'
+                      borderColor: msg.username === user.username ? '#FFD700' : '#A39E94',
+                      borderWidth: msg.username === user.username ? '3px' : '2px',
+                      backgroundColor: msg.username === user.username ? 'rgba(255, 248, 220, 0.9)' : 'rgba(163, 158, 148, 0.05)'
                     }}
                   >
                     <div style={{
-                      color: msg.username === user.username ? '#8B7355' : '#8B7355',
+                      color: msg.username === user.username ? '#FFD700' : '#000000',
                       fontWeight: 'bold',
                       marginBottom: '5px'
                     }}>
                       {msg.username}
                     </div>
-                    <div>{msg.content}</div>
+                    <div style={{ color: '#000000' }}>{msg.content}</div>
                   </div>
                 ))
               )}

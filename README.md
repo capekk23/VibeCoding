@@ -1,4 +1,4 @@
-# ⚡ VIBE TERMINAL ⚡
+# 📡 DEEP SPACE RELAY 📡
 
 A retro-futuristic web app with a 90s cyberpunk aesthetic. Features user authentication, real-time messaging, and multiplayer mini-games.
 

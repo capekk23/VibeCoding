@@ -84,7 +84,8 @@ export default function PublicChat({ user }) {
               className="panel"
               style={{
                 borderColor: msg.username === user.username ? '#FFD700' : '#A39E94',
-                backgroundColor: msg.username === user.username ? 'rgba(255, 215, 0, 0.1)' : 'rgba(163, 158, 148, 0.05)'
+                borderWidth: msg.username === user.username ? '3px' : '2px',
+                backgroundColor: msg.username === user.username ? 'rgba(255, 248, 220, 0.9)' : 'rgba(163, 158, 148, 0.05)'
               }}
             >
               <div style={{
