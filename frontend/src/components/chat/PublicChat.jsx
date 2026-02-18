@@ -83,17 +83,18 @@ export default function PublicChat({ user }) {
               key={msg.id}
               className="panel"
               style={{
-                borderColor: msg.username === user.username ? '#8B7355' : '#9B8B7E'
+                borderColor: msg.username === user.username ? '#FFD700' : '#A39E94',
+                backgroundColor: msg.username === user.username ? 'rgba(255, 215, 0, 0.1)' : 'rgba(163, 158, 148, 0.05)'
               }}
             >
               <div style={{
-                color: msg.username === user.username ? '#8B7355' : '#8B7355',
+                color: msg.username === user.username ? '#FFD700' : '#000000',
                 fontWeight: 'bold',
                 marginBottom: '5px'
               }}>
                 📡 {msg.username}
               </div>
-              <div>{msg.content}</div>
+              <div style={{ color: '#000000' }}>{msg.content}</div>
               <div style={{
                 fontSize: '12px',
                 color: '#9B8B7E',

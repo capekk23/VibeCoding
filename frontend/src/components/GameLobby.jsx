@@ -5,90 +5,45 @@ import NumberGuess from './games/NumberGuess';
 import Racing from './games/Racing';
 
 export default function GameLobby({ user }) {
-  const [games, setGames] = useState([]);
+  const [view, setView] = useState('games'); // 'games', 'modeselect', 'playing'
   const [selectedGame, setSelectedGame] = useState(null);
-  const [gameView, setGameView] = useState('lobby');
-  const [userCount, setUserCount] = useState(0);
+  const [selectedGameType, setSelectedGameType] = useState(null);
 
-  useEffect(() => {
-    if (gameView === 'lobby') {
-      fetchGames();
-      fetchUserCount();
-      const interval = setInterval(() => {
-        fetchGames();
-        fetchUserCount();
-      }, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [gameView]);
+  const gameList = [
+    { id: 'tictactoe', name: 'Tic Tac Toe', emoji: '🎯', color: '#FF6B6B' },
+    { id: 'rockpaperscissors', name: 'Rock Paper Scissors', emoji: '✂️', color: '#4ECDC4' },
+    { id: 'numberguess', name: 'Number Guess', emoji: '🔢', color: '#45B7D1' },
+    { id: 'racing', name: 'Highway Racer', emoji: '🏎️', color: '#FFA07A' }
+  ];
 
-  const fetchGames = async () => {
-    try {
-      const response = await fetch('/api/games');
-      if (response.ok) {
-        const data = await response.json();
-        setGames(data);
-      }
-    } catch (err) {
-      console.error('Error fetching games:', err);
-    }
+  const selectGame = (gameId) => {
+    setSelectedGameType(gameId);
+    setView('modeselect');
   };
 
-  const fetchUserCount = async () => {
-    try {
-      const response = await fetch('/api/dm/users');
-      if (response.ok) {
-        const data = await response.json();
-        setUserCount(data.length);
-      }
-    } catch (err) {
-      console.error('Error fetching user count:', err);
-    }
-  };
-
-  const startGame = async (gameType, mode) => {
+  const startGame = (mode) => {
     if (mode === 'pve') {
-      setSelectedGame({ game_type: gameType, player1_id: user.id, mode: 'pve' });
-      setGameView('playing');
+      setSelectedGame({ game_type: selectedGameType, player1_id: user.id, mode: 'pve' });
+      setView('playing');
     } else {
-      try {
-        const response = await fetch('/api/games', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ game_type: gameType, player1_id: user.id })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setSelectedGame({ ...data, mode: 'pvp' });
-          setGameView('playing');
-        }
-      } catch (err) {
-        console.error('Error creating game:', err);
-      }
+      setSelectedGame({ game_type: selectedGameType, player1_id: user.id, mode: 'pvp' });
+      setView('playing');
     }
   };
 
-  const joinGame = async (gameId) => {
-    try {
-      await fetch(`/api/games/${gameId}/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player2_id: user.id })
-      });
-
-      const response = await fetch(`/api/games/${gameId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setSelectedGame({ ...data, mode: 'pvp' });
-        setGameView('playing');
-      }
-    } catch (err) {
-      console.error('Error joining game:', err);
-    }
+  const backToGames = () => {
+    setView('games');
+    setSelectedGameType(null);
+    setSelectedGame(null);
   };
 
-  if (gameView === 'playing' && selectedGame) {
+  const exitGame = () => {
+    setView('games');
+    setSelectedGame(null);
+    setSelectedGameType(null);
+  };
+
+  if (view === 'playing' && selectedGame) {
     const GameComponent = selectedGame.game_type === 'tictactoe' ? TicTacToe
       : selectedGame.game_type === 'rockpaperscissors' ? RockPaperScissors
       : selectedGame.game_type === 'numberguess' ? NumberGuess
@@ -100,216 +55,112 @@ export default function GameLobby({ user }) {
           game={selectedGame}
           user={user}
           gameMode={selectedGame.mode}
-          onExit={() => {
-            setGameView('lobby');
-            fetchGames();
-          }}
+          onExit={exitGame}
         />
       </div>
     );
   }
 
+  if (view === 'modeselect') {
+    const game = gameList.find(g => g.id === selectedGameType);
+    return (
+      <div style={{ width: '100%', height: '100%', padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <button
+          onClick={backToGames}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            borderColor: '#8B4513',
+            color: '#000000',
+            padding: '8px 16px'
+          }}
+        >
+          ← BACK
+        </button>
+
+        <h2 style={{ marginBottom: '60px' }}>
+          <span style={{ fontSize: '48px' }}>{game?.emoji}</span> {game?.name}
+        </h2>
+
+        <div style={{ display: 'flex', gap: '40px' }}>
+          <button
+            onClick={() => startGame('pve')}
+            style={{
+              borderColor: '#8B4513',
+              color: '#000000',
+              backgroundColor: 'rgba(255, 215, 0, 0.2)',
+              padding: '30px 50px',
+              fontSize: '18px',
+              borderRadius: '8px'
+            }}
+          >
+            🤖 PLAY vs AI
+          </button>
+
+          <button
+            onClick={() => startGame('pvp')}
+            style={{
+              borderColor: '#8B4513',
+              color: '#000000',
+              backgroundColor: 'rgba(255, 215, 0, 0.2)',
+              padding: '30px 50px',
+              fontSize: '18px',
+              borderRadius: '8px'
+            }}
+          >
+            👥 PLAY vs PLAYER
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ width: '100%', height: '100%', overflowY: 'auto', padding: '20px' }}>
-      <h2 className="glow-text-lime">🎮 GAME LOBBY</h2>
+    <div style={{ width: '100%', height: '100%', padding: '40px', display: 'flex', flexDirection: 'column' }}>
+      <h2 style={{ marginBottom: '40px', textAlign: 'center' }}>🎮 SELECT A GAME</h2>
+
       <div style={{
-        backgroundColor: 'rgba(255, 215, 0, 0.15)',
-        padding: '10px 15px',
-        borderRadius: '4px',
-        marginBottom: '20px',
-        borderLeft: '3px solid #FFD700'
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '30px',
+        maxWidth: '800px',
+        margin: '0 auto'
       }}>
-        👥 <strong>{userCount} other players online</strong>
+        {gameList.map((game) => (
+          <button
+            key={game.id}
+            onClick={() => selectGame(game.id)}
+            style={{
+              border: '2px solid #C0C0C0',
+              borderRadius: '8px',
+              backgroundColor: `${game.color}22`,
+              padding: '40px 20px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '15px',
+              transition: 'all 0.2s',
+              minHeight: '180px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = `${game.color}44`;
+              e.currentTarget.style.borderColor = game.color;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = `${game.color}22`;
+              e.currentTarget.style.borderColor = '#C0C0C0';
+            }}
+          >
+            <span style={{ fontSize: '48px' }}>{game.emoji}</span>
+            <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#000000' }}>
+              {game.name}
+            </span>
+          </button>
+        ))}
       </div>
-
-      {/* Game Selection */}
-      <div className="panel panel-lime" style={{ marginBottom: '20px' }}>
-        <h3>SELECT GAME MODE:</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px' }}>
-          {/* Tic Tac Toe */}
-          <div style={{
-            border: '1.5px solid #A39E94',
-            padding: '15px',
-            borderRadius: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)'
-          }}>
-            <h4 style={{ color: '#1A2332', marginBottom: '10px' }}>🎯 TIC TAC TOE</h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => startGame('tictactoe', 'pvp')}
-                style={{
-                  flex: 1,
-                  borderColor: '#FFD700',
-                  color: '#1A2332',
-                  backgroundColor: 'rgba(255, 215, 0, 0.2)',
-                  fontSize: '12px',
-                  padding: '8px'
-                }}
-              >
-                PvP
-              </button>
-              <button
-                onClick={() => startGame('tictactoe', 'pve')}
-                style={{
-                  flex: 1,
-                  borderColor: '#9B8B7E',
-                  color: '#1A2332',
-                  backgroundColor: 'rgba(0, 206, 209, 0.2)',
-                  fontSize: '12px',
-                  padding: '8px'
-                }}
-              >
-                PvE
-              </button>
-            </div>
-          </div>
-
-          {/* Rock Paper Scissors */}
-          <div style={{
-            border: '1.5px solid #A39E94',
-            padding: '15px',
-            borderRadius: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)'
-          }}>
-            <h4 style={{ color: '#1A2332', marginBottom: '10px' }}>✂️ ROCK PAPER SCISSORS</h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => startGame('rockpaperscissors', 'pvp')}
-                style={{
-                  flex: 1,
-                  borderColor: '#FFD700',
-                  color: '#1A2332',
-                  backgroundColor: 'rgba(255, 215, 0, 0.2)',
-                  fontSize: '12px',
-                  padding: '8px'
-                }}
-              >
-                PvP
-              </button>
-              <button
-                onClick={() => startGame('rockpaperscissors', 'pve')}
-                style={{
-                  flex: 1,
-                  borderColor: '#9B8B7E',
-                  color: '#1A2332',
-                  backgroundColor: 'rgba(0, 206, 209, 0.2)',
-                  fontSize: '12px',
-                  padding: '8px'
-                }}
-              >
-                PvE
-              </button>
-            </div>
-          </div>
-
-          {/* Number Guess */}
-          <div style={{
-            border: '1.5px solid #A39E94',
-            padding: '15px',
-            borderRadius: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)'
-          }}>
-            <h4 style={{ color: '#1A2332', marginBottom: '10px' }}>🔢 NUMBER GUESS</h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => startGame('numberguess', 'pvp')}
-                style={{
-                  flex: 1,
-                  borderColor: '#FFD700',
-                  color: '#1A2332',
-                  backgroundColor: 'rgba(255, 215, 0, 0.2)',
-                  fontSize: '12px',
-                  padding: '8px'
-                }}
-              >
-                PvP
-              </button>
-              <button
-                onClick={() => startGame('numberguess', 'pve')}
-                style={{
-                  flex: 1,
-                  borderColor: '#9B8B7E',
-                  color: '#1A2332',
-                  backgroundColor: 'rgba(0, 206, 209, 0.2)',
-                  fontSize: '12px',
-                  padding: '8px'
-                }}
-              >
-                PvE
-              </button>
-            </div>
-          </div>
-
-          {/* Racing */}
-          <div style={{
-            border: '1.5px solid #A39E94',
-            padding: '15px',
-            borderRadius: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)'
-          }}>
-            <h4 style={{ color: '#1A2332', marginBottom: '10px' }}>🏎️ CIRCUIT RACING</h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => startGame('racing', 'pvp')}
-                style={{
-                  flex: 1,
-                  borderColor: '#FFD700',
-                  color: '#1A2332',
-                  backgroundColor: 'rgba(255, 215, 0, 0.2)',
-                  fontSize: '12px',
-                  padding: '8px'
-                }}
-              >
-                PvP
-              </button>
-              <button
-                onClick={() => startGame('racing', 'pve')}
-                style={{
-                  flex: 1,
-                  borderColor: '#9B8B7E',
-                  color: '#1A2332',
-                  backgroundColor: 'rgba(0, 206, 209, 0.2)',
-                  fontSize: '12px',
-                  padding: '8px'
-                }}
-              >
-                PvE
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Waiting Games */}
-      {games.length > 0 && (
-        <div className="panel panel-magenta">
-          <h3>⏳ WAITING FOR PLAYERS:</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '15px' }}>
-            {games.map((game) => (
-              <div key={game.id} className="panel" style={{ padding: '15px', backgroundColor: 'white' }}>
-                <div style={{ color: '#9B8B7E', fontWeight: 'bold', marginBottom: '10px' }}>
-                  {game.game_type.toUpperCase()}
-                </div>
-                {game.player2_id ? (
-                  <div style={{ color: '#8B4513' }}>⚠️ IN PROGRESS</div>
-                ) : (
-                  <button
-                    onClick={() => joinGame(game.id)}
-                    style={{
-                      borderColor: '#FFD700',
-                      color: '#1A2332',
-                      backgroundColor: 'rgba(255, 215, 0, 0.2)',
-                      width: '100%'
-                    }}
-                  >
-                    JOIN GAME
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

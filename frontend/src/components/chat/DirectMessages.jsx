@@ -68,7 +68,7 @@ export default function DirectMessages({ user }) {
     if (!input.trim() || !selectedUser) return;
 
     try {
-      await fetch('/api/dm', {
+      const response = await fetch('/api/dm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -80,9 +80,11 @@ export default function DirectMessages({ user }) {
         })
       });
 
-      setInput('');
-      fetchMessages(selectedUser.id);
-      fetchConversations();
+      if (response.ok) {
+        setInput('');
+        await fetchMessages(selectedUser.id);
+        await fetchConversations();
+      }
     } catch (err) {
       console.error('Error sending message:', err);
     }
@@ -203,19 +205,22 @@ export default function DirectMessages({ user }) {
                     className="panel"
                     style={{
                       borderColor: msg.from_user_id === user.id ? '#FFD700' : '#A39E94',
+                      backgroundColor: msg.from_user_id === user.id ? 'rgba(255, 215, 0, 0.1)' : 'rgba(163, 158, 148, 0.05)',
                       alignSelf: msg.from_user_id === user.id ? 'flex-end' : 'flex-start',
                       maxWidth: '70%'
                     }}
                   >
                     <div style={{
-                      color: msg.from_user_id === user.id ? '#DAA520' : '#008B8B',
+                      color: msg.from_user_id === user.id ? '#FFD700' : '#000000',
                       fontWeight: 'bold',
                       marginBottom: '5px',
                       fontSize: '12px'
                     }}>
                       {msg.from_username}
                     </div>
-                    <div>{msg.content}</div>
+                    <div style={{
+                      color: '#000000'
+                    }}>{msg.content}</div>
                   </div>
                 ))
               )}
