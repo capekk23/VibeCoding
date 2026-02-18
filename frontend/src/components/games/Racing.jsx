@@ -5,6 +5,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
   const [gameState, setGameState] = useState('playing');
   const [score, setScore] = useState(0);
   const [carAvoided, setCarAvoided] = useState(0);
+  const [opponent, setOpponent] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
   const keysPressed = useRef({});
 
   const gameRef = useRef({
@@ -14,8 +16,9 @@ export default function Racing({ game, user, gameMode, onExit }) {
     roadSpeed: 3,
     score: 0,
     carAvoided: 0,
-    obstacles: [],
-    running: true
+    seed: 0,
+    running: true,
+    seededRandom: null
   });
 
   // Canvas dimensions
@@ -28,12 +31,29 @@ export default function Racing({ game, user, gameMode, onExit }) {
   const ROAD_LEFT = 200;
   const ROAD_RIGHT = 1000;
 
-  // Create simple gradient as "road"
+  // Seeded random number generator
+  const seededRandom = (seed) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const generateObstacles = (seed, roadSpeed) => {
+    const obstacles = [];
+    for (let i = 0; i < 4; i++) {
+      const randomX = seededRandom(seed + i * 123.456) * (ROAD_RIGHT - ROAD_LEFT - OBSTACLE_WIDTH) + ROAD_LEFT;
+      obstacles.push({
+        x: randomX,
+        y: -200 * i - 300,
+        order: i
+      });
+    }
+    return obstacles;
+  };
+
   const drawRoad = (ctx, offsetY) => {
     ctx.fillStyle = '#E8D4A8';
     ctx.fillRect(ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, CANVAS_HEIGHT);
     
-    // Road stripes
     ctx.strokeStyle = '#DAA520';
     ctx.lineWidth = 3;
     for (let i = -CANVAS_HEIGHT; i < CANVAS_HEIGHT * 2; i += 100) {
@@ -45,11 +65,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
   };
 
   const drawCar = (ctx, x, y, color) => {
-    // Car body
     ctx.fillStyle = color;
     ctx.fillRect(x, y, CAR_WIDTH, CAR_HEIGHT);
-    
-    // Windshield
     ctx.fillStyle = '#000000';
     ctx.fillRect(x + 10, y + 10, CAR_WIDTH - 20, 30);
   };
@@ -69,20 +86,41 @@ export default function Racing({ game, user, gameMode, onExit }) {
     };
   }, []);
 
+  // Initialize game
   useEffect(() => {
-    const g = gameRef.current;
-    g.myCarX = CANVAS_WIDTH / 2 - CAR_WIDTH / 2;
-    g.bgY1 = 0;
-    g.bgY2 = -CANVAS_HEIGHT;
+    const initGame = async () => {
+      const g = gameRef.current;
+      g.myCarX = CANVAS_WIDTH / 2 - CAR_WIDTH / 2;
+      g.bgY1 = 0;
+      g.bgY2 = -CANVAS_HEIGHT;
 
-    // Initialize obstacles
-    for (let i = 0; i < 4; i++) {
-      g.obstacles.push({
-        x: Math.random() * (ROAD_RIGHT - ROAD_LEFT - OBSTACLE_WIDTH) + ROAD_LEFT,
-        y: -200 * i - 300,
-        order: i
-      });
-    }
+      if (gameMode === 'pvp') {
+        // Create or join multiplayer session
+        try {
+          const createRes = await fetch('/api/games/race/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id })
+          });
+          const { sessionId: sid } = await createRes.json();
+          setSessionId(sid);
+          g.sessionId = sid;
+        } catch (err) {
+          console.error('Failed to create race session', err);
+        }
+      } else {
+        // PvE - generate seed locally
+        g.seed = Math.floor(Math.random() * 10000);
+      }
+    };
+    initGame();
+  }, [gameMode, user]);
+
+  // Main game loop
+  useEffect(() => {
+    if (!sessionId && gameMode === 'pvp') return;
+
+    const g = gameRef.current;
 
     const gameLoop = () => {
       if (!g.running) return;
@@ -97,11 +135,9 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
       // Handle input
       if (keysPressed.current[37] || keysPressed.current[65]) {
-        // Left arrow or A
         g.myCarX = Math.max(ROAD_LEFT, g.myCarX - 6);
       }
       if (keysPressed.current[39] || keysPressed.current[68]) {
-        // Right arrow or D
         g.myCarX = Math.min(ROAD_RIGHT - CAR_WIDTH, g.myCarX + 6);
       }
 
@@ -122,6 +158,9 @@ export default function Racing({ game, user, gameMode, onExit }) {
         g.roadSpeed += 0.02;
       }
 
+      // Generate obstacles using seed
+      const obstacles = generateObstacles(g.seed || 0, g.roadSpeed);
+
       // Draw
       ctx.fillStyle = '#8B6F47';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -131,12 +170,10 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
       // Update and draw obstacles
       let hitObstacle = false;
-      g.obstacles.forEach((obs) => {
+      obstacles.forEach((obs) => {
         obs.y += g.roadSpeed;
 
         if (obs.y > CANVAS_HEIGHT) {
-          obs.y = -OBSTACLE_HEIGHT - 100;
-          obs.x = Math.random() * (ROAD_RIGHT - ROAD_LEFT - OBSTACLE_WIDTH) + ROAD_LEFT;
           g.carAvoided++;
         }
 
@@ -156,11 +193,20 @@ export default function Racing({ game, user, gameMode, onExit }) {
       // Draw player car
       drawCar(ctx, g.myCarX, CANVAS_HEIGHT - CAR_HEIGHT - 20, '#FFD700');
 
+      // Draw opponent car if PvP
+      if (gameMode === 'pvp' && opponent) {
+        drawCar(ctx, opponent.x, CANVAS_HEIGHT - CAR_HEIGHT - 20, '#FF1493');
+      }
+
       // Draw HUD
       ctx.fillStyle = '#000000';
       ctx.font = '18px IBM Plex Mono';
       ctx.fillText(`Distance: ${Math.floor(g.score)}`, 20, 40);
       ctx.fillText(`Avoided: ${g.carAvoided}`, 20, 70);
+      
+      if (opponent) {
+        ctx.fillText(`Opponent: ${opponent.score ? Math.floor(opponent.score) : 0}`, CANVAS_WIDTH - 300, 40);
+      }
 
       setScore(Math.floor(g.score));
       setCarAvoided(g.carAvoided);
@@ -171,12 +217,32 @@ export default function Racing({ game, user, gameMode, onExit }) {
         return;
       }
 
+      // Send update to server if PvP
+      if (gameMode === 'pvp' && g.sessionId) {
+        fetch('/api/games/race/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: g.sessionId,
+            userId: user.id,
+            x: g.myCarX,
+            score: g.score,
+            avoided: g.carAvoided
+          })
+        }).then(r => r.json()).then(data => {
+          if (data.players) {
+            const opp = data.players.find(p => p.userId !== user.id);
+            if (opp) setOpponent(opp);
+          }
+        }).catch(() => {});
+      }
+
       requestAnimationFrame(gameLoop);
     };
 
     const rafId = requestAnimationFrame(gameLoop);
     return () => cancelAnimationFrame(rafId);
-  }, []);
+  }, [gameMode, user, opponent]);
 
   const resetGame = () => {
     gameRef.current = {
@@ -186,18 +252,10 @@ export default function Racing({ game, user, gameMode, onExit }) {
       roadSpeed: 3,
       score: 0,
       carAvoided: 0,
-      obstacles: [],
-      running: true
+      seed: gameRef.current.seed,
+      running: true,
+      seededRandom: null
     };
-
-    // Reinitialize obstacles
-    for (let i = 0; i < 4; i++) {
-      gameRef.current.obstacles.push({
-        x: Math.random() * (ROAD_RIGHT - ROAD_LEFT - OBSTACLE_WIDTH) + ROAD_LEFT,
-        y: -200 * i - 300,
-        order: i
-      });
-    }
 
     setScore(0);
     setCarAvoided(0);
@@ -207,7 +265,7 @@ export default function Racing({ game, user, gameMode, onExit }) {
   return (
     <div className="flex-column" style={{ width: '100%', height: '100%', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>🏎️ HIGHWAY RACER</h2>
+        <h2>🏎️ HIGHWAY RACER {gameMode === 'pvp' ? '(PvP)' : '(PvE)'}</h2>
         <button onClick={onExit} style={{ borderColor: '#8B4513', color: '#000000' }}>
           EXIT
         </button>
@@ -234,7 +292,7 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
         <div style={{ fontSize: '14px', color: '#000000', textAlign: 'center' }}>
           <div><strong>A/←</strong> Move Left | <strong>D/→</strong> Move Right</div>
-          <div>Dodge incoming traffic! Avoid cars and survive as long as you can.</div>
+          <div>Dodge incoming traffic! {gameMode === 'pvp' ? 'Compete with opponent!' : 'Survive as long as you can.'}</div>
         </div>
       </div>
 
@@ -253,8 +311,9 @@ export default function Racing({ game, user, gameMode, onExit }) {
         }}>
           <h2 style={{ color: '#FF8C00', marginBottom: '20px' }}>GAME OVER!</h2>
           <div style={{ fontSize: '18px', color: '#000000', marginBottom: '30px' }}>
-            <div>Distance: {score}</div>
+            <div>Your Distance: {score}</div>
             <div>Cars Avoided: {carAvoided}</div>
+            {opponent && <div style={{ marginTop: '20px', color: '#999' }}>Opponent Distance: {Math.floor(opponent.score || 0)}</div>}
           </div>
           <button onClick={resetGame} style={{
             borderColor: '#FFD700',

@@ -1,7 +1,11 @@
 const express = require('express');
 const db = require('../db');
+const crypto = require('crypto');
 
 const router = express.Router();
+
+// Multiplayer racing sessions
+const raceSessions = {};
 
 // Create a new game
 router.post('/', (req, res) => {
@@ -32,18 +36,22 @@ router.get('/', (req, res) => {
       if (err) {
         return res.status(500).json({ error: 'Failed to fetch games' });
       }
-      res.json(rows);
+      res.json(rows || []);
     }
   );
 });
 
 // Get game by ID
 router.get('/:id', (req, res) => {
+  const { id } = req.params;
   db.get(
     'SELECT * FROM games WHERE id = ?',
-    [req.params.id],
+    [id],
     (err, row) => {
-      if (err || !row) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to fetch game' });
+      }
+      if (!row) {
         return res.status(404).json({ error: 'Game not found' });
       }
       res.json(row);
@@ -51,56 +59,56 @@ router.get('/:id', (req, res) => {
   );
 });
 
-// Join a game
-router.post('/:id/join', (req, res) => {
-  const { player2_id } = req.body;
-
-  db.run(
-    'UPDATE games SET player2_id = ? WHERE id = ? AND player2_id IS NULL',
-    [player2_id, req.params.id],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to join game' });
-      }
-      res.json({ success: true });
-    }
-  );
+// Multiplayer Racing - Create session
+router.post('/race/create', (req, res) => {
+  const { userId } = req.body;
+  const sessionId = crypto.randomBytes(8).toString('hex');
+  raceSessions[sessionId] = {
+    players: [{ userId, x: 550, score: 0, avoided: 0 }],
+    roadSpeed: 3,
+    seed: Math.floor(Math.random() * 10000),
+    createdAt: Date.now()
+  };
+  res.json({ sessionId });
 });
 
-// Make a move
-router.post('/:id/move', (req, res) => {
-  const { player_id, move } = req.body;
-
-  if (!player_id || !move) {
-    return res.status(400).json({ error: 'Missing required fields' });
+// Multiplayer Racing - Join session
+router.post('/race/join', (req, res) => {
+  const { sessionId, userId } = req.body;
+  if (raceSessions[sessionId] && raceSessions[sessionId].players.length < 2) {
+    raceSessions[sessionId].players.push({ userId, x: 650, score: 0, avoided: 0 });
+    res.json({ success: true, seed: raceSessions[sessionId].seed });
+  } else {
+    res.status(400).json({ error: 'Session not available' });
   }
-
-  db.run(
-    'INSERT INTO game_moves (game_id, player_id, move) VALUES (?, ?, ?)',
-    [req.params.id, player_id, move],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to record move' });
-      }
-      res.json({ success: true });
-    }
-  );
 });
 
-// End game / set winner
-router.post('/:id/end', (req, res) => {
-  const { winner_id } = req.body;
-
-  db.run(
-    'UPDATE games SET winner_id = ? WHERE id = ?',
-    [winner_id, req.params.id],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to end game' });
-      }
-      res.json({ success: true });
+// Multiplayer Racing - Update player position
+router.post('/race/update', (req, res) => {
+  const { sessionId, userId, x, score, avoided } = req.body;
+  if (raceSessions[sessionId]) {
+    const player = raceSessions[sessionId].players.find(p => p.userId === userId);
+    if (player) {
+      player.x = x;
+      player.score = score;
+      player.avoided = avoided;
+      res.json({ 
+        seed: raceSessions[sessionId].seed,
+        players: raceSessions[sessionId].players,
+        roadSpeed: raceSessions[sessionId].roadSpeed
+      });
     }
-  );
+  }
+});
+
+// Multiplayer Racing - Get session state
+router.get('/race/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  if (raceSessions[sessionId]) {
+    res.json(raceSessions[sessionId]);
+  } else {
+    res.status(404).json({ error: 'Session not found' });
+  }
 });
 
 module.exports = router;
