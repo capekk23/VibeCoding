@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import TicTacToe from './games/TicTacToe';
 import RockPaperScissors from './games/RockPaperScissors';
 import NumberGuess from './games/NumberGuess';
+import Racing from './games/Racing';
 
 export default function GameLobby({ user }) {
   const [games, setGames] = useState([]);
@@ -90,7 +91,8 @@ export default function GameLobby({ user }) {
   if (gameView === 'playing' && selectedGame) {
     const GameComponent = selectedGame.game_type === 'tictactoe' ? TicTacToe
       : selectedGame.game_type === 'rockpaperscissors' ? RockPaperScissors
-      : NumberGuess;
+      : selectedGame.game_type === 'numberguess' ? NumberGuess
+      : Racing;
 
     return (
       <div style={{ width: '100%', height: '100%' }}>
@@ -224,6 +226,44 @@ export default function GameLobby({ user }) {
               </button>
               <button
                 onClick={() => startGame('numberguess', 'pve')}
+                style={{
+                  flex: 1,
+                  borderColor: '#9B8B7E',
+                  color: '#1A2332',
+                  backgroundColor: 'rgba(0, 206, 209, 0.2)',
+                  fontSize: '12px',
+                  padding: '8px'
+                }}
+              >
+                PvE
+              </button>
+            </div>
+          </div>
+
+          {/* Racing */}
+          <div style={{
+            border: '1.5px solid #A39E94',
+            padding: '15px',
+            borderRadius: '6px',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)'
+          }}>
+            <h4 style={{ color: '#1A2332', marginBottom: '10px' }}>🏎️ CIRCUIT RACING</h4>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => startGame('racing', 'pvp')}
+                style={{
+                  flex: 1,
+                  borderColor: '#FFD700',
+                  color: '#1A2332',
+                  backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                  fontSize: '12px',
+                  padding: '8px'
+                }}
+              >
+                PvP
+              </button>
+              <button
+                onClick={() => startGame('racing', 'pve')}
                 style={{
                   flex: 1,
                   borderColor: '#9B8B7E',
