@@ -5,70 +5,84 @@ export default function Racing({ game, user, gameMode, onExit }) {
   const [gameState, setGameState] = useState('playing');
   const [score, setScore] = useState(0);
   const [carAvoided, setCarAvoided] = useState(0);
-  const [opponent, setOpponent] = useState(null);
+  const [opponents, setOpponents] = useState([]);
   const [sessionId, setSessionId] = useState(null);
   const keysPressed = useRef({});
 
   const gameRef = useRef({
     myCarX: 0,
+    myLane: 5,
     bgY1: 0,
     bgY2: 0,
-    roadSpeed: 3,
+    baseSpeed: 2,
     score: 0,
     carAvoided: 0,
     seed: 0,
-    running: true,
-    seededRandom: null
+    running: true
   });
 
-  // Canvas dimensions
-  const CANVAS_WIDTH = 1200;
-  const CANVAS_HEIGHT = 800;
-  const CAR_WIDTH = 80;
-  const CAR_HEIGHT = 150;
-  const OBSTACLE_WIDTH = 80;
-  const OBSTACLE_HEIGHT = 150;
-  const ROAD_LEFT = 200;
-  const ROAD_RIGHT = 1000;
+  // Canvas dimensions - much smaller
+  const CANVAS_WIDTH = 600;
+  const CANVAS_HEIGHT = 500;
+  const LANE_WIDTH = 60;
+  const NUM_LANES = 10;
+  const ROAD_WIDTH = LANE_WIDTH * NUM_LANES;
+  const ROAD_LEFT = (CANVAS_WIDTH - ROAD_WIDTH) / 2;
+  const CAR_WIDTH = 50;
+  const CAR_HEIGHT = 35;
+  const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#AED6F1'];
 
-  // Seeded random number generator
   const seededRandom = (seed) => {
     const x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
   };
 
-  const generateObstacles = (seed, roadSpeed) => {
+  const generateObstacles = (seed, score) => {
     const obstacles = [];
-    for (let i = 0; i < 4; i++) {
-      const randomX = seededRandom(seed + i * 123.456) * (ROAD_RIGHT - ROAD_LEFT - OBSTACLE_WIDTH) + ROAD_LEFT;
+    const baseSpeed = 2 + Math.min(score * 0.001, 15); // Exponential-like growth with cap at 17
+    
+    for (let i = 0; i < 8; i++) {
+      const lane = Math.floor(seededRandom(seed + i * 111.111) * NUM_LANES);
+      const color = COLORS[Math.floor(seededRandom(seed + i * 222.222) * COLORS.length)];
       obstacles.push({
-        x: randomX,
-        y: -200 * i - 300,
-        order: i
+        lane,
+        y: -100 * i - 200,
+        color,
+        id: seed + i
       });
     }
     return obstacles;
   };
 
   const drawRoad = (ctx, offsetY) => {
+    // Road background
     ctx.fillStyle = '#E8D4A8';
-    ctx.fillRect(ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, CANVAS_HEIGHT);
-    
+    ctx.fillRect(ROAD_LEFT, 0, ROAD_WIDTH, CANVAS_HEIGHT);
+
+    // Lane dividers
     ctx.strokeStyle = '#DAA520';
-    ctx.lineWidth = 3;
-    for (let i = -CANVAS_HEIGHT; i < CANVAS_HEIGHT * 2; i += 100) {
-      ctx.beginPath();
-      ctx.moveTo(CANVAS_WIDTH / 2, i + offsetY);
-      ctx.lineTo(CANVAS_WIDTH / 2, i + 50 + offsetY);
-      ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.setLineDash([15, 15]);
+    for (let lane = 1; lane < NUM_LANES; lane++) {
+      const x = ROAD_LEFT + lane * LANE_WIDTH;
+      for (let i = -CANVAS_HEIGHT; i < CANVAS_HEIGHT * 2; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, i + offsetY);
+        ctx.lineTo(x, i + 20 + offsetY);
+        ctx.stroke();
+      }
     }
+    ctx.setLineDash([]);
   };
 
-  const drawCar = (ctx, x, y, color) => {
+  const drawCar = (ctx, lane, y, color, opacity = 1) => {
+    ctx.globalAlpha = opacity;
     ctx.fillStyle = color;
-    ctx.fillRect(x, y, CAR_WIDTH, CAR_HEIGHT);
+    const laneX = ROAD_LEFT + lane * LANE_WIDTH + (LANE_WIDTH - CAR_WIDTH) / 2;
+    ctx.fillRect(laneX, y, CAR_WIDTH, CAR_HEIGHT);
     ctx.fillStyle = '#000000';
-    ctx.fillRect(x + 10, y + 10, CAR_WIDTH - 20, 30);
+    ctx.fillRect(laneX + 5, y + 3, CAR_WIDTH - 10, 12);
+    ctx.globalAlpha = 1;
   };
 
   useEffect(() => {
@@ -86,16 +100,13 @@ export default function Racing({ game, user, gameMode, onExit }) {
     };
   }, []);
 
-  // Initialize game
   useEffect(() => {
     const initGame = async () => {
       const g = gameRef.current;
-      g.myCarX = CANVAS_WIDTH / 2 - CAR_WIDTH / 2;
-      g.bgY1 = 0;
-      g.bgY2 = -CANVAS_HEIGHT;
+      g.myLane = Math.floor(NUM_LANES / 2);
+      g.seed = Math.floor(Math.random() * 10000);
 
       if (gameMode === 'pvp') {
-        // Create or join multiplayer session
         try {
           const createRes = await fetch('/api/games/race/create', {
             method: 'POST',
@@ -108,15 +119,11 @@ export default function Racing({ game, user, gameMode, onExit }) {
         } catch (err) {
           console.error('Failed to create race session', err);
         }
-      } else {
-        // PvE - generate seed locally
-        g.seed = Math.floor(Math.random() * 10000);
       }
     };
     initGame();
   }, [gameMode, user]);
 
-  // Main game loop
   useEffect(() => {
     if (!sessionId && gameMode === 'pvp') return;
 
@@ -133,17 +140,23 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
       const ctx = canvas.getContext('2d');
 
-      // Handle input
+      // Handle input - change lanes
       if (keysPressed.current[37] || keysPressed.current[65]) {
-        g.myCarX = Math.max(ROAD_LEFT, g.myCarX - 6);
+        // Left
+        g.myLane = Math.max(0, g.myLane - 1);
+        keysPressed.current[37] = false;
+        keysPressed.current[65] = false;
       }
       if (keysPressed.current[39] || keysPressed.current[68]) {
-        g.myCarX = Math.min(ROAD_RIGHT - CAR_WIDTH, g.myCarX + 6);
+        // Right
+        g.myLane = Math.min(NUM_LANES - 1, g.myLane + 1);
+        keysPressed.current[39] = false;
+        keysPressed.current[68] = false;
       }
 
       // Update road
-      g.bgY1 += g.roadSpeed;
-      g.bgY2 += g.roadSpeed;
+      g.bgY1 += g.baseSpeed;
+      g.bgY2 += g.baseSpeed;
 
       if (g.bgY1 >= CANVAS_HEIGHT) {
         g.bgY1 = -CANVAS_HEIGHT;
@@ -152,14 +165,12 @@ export default function Racing({ game, user, gameMode, onExit }) {
         g.bgY2 = -CANVAS_HEIGHT;
       }
 
-      // Update score
-      g.score += 0.15;
-      if (g.score > 500) {
-        g.roadSpeed += 0.02;
-      }
+      // Exponential speed growth with cap at 17
+      g.score += 0.1;
+      g.baseSpeed = 2 + Math.min(g.score * 0.0015, 15);
 
-      // Generate obstacles using seed
-      const obstacles = generateObstacles(g.seed || 0, g.roadSpeed);
+      // Generate obstacles
+      const obstacles = generateObstacles(g.seed, g.score);
 
       // Draw
       ctx.fillStyle = '#8B6F47';
@@ -171,42 +182,48 @@ export default function Racing({ game, user, gameMode, onExit }) {
       // Update and draw obstacles
       let hitObstacle = false;
       obstacles.forEach((obs) => {
-        obs.y += g.roadSpeed;
+        obs.y += g.baseSpeed;
 
         if (obs.y > CANVAS_HEIGHT) {
           g.carAvoided++;
         }
 
-        drawCar(ctx, obs.x, obs.y, '#FF8C00');
+        drawCar(ctx, obs.lane, obs.y, obs.color);
 
         // Collision detection
         if (
-          g.myCarX < obs.x + OBSTACLE_WIDTH &&
-          g.myCarX + CAR_WIDTH > obs.x &&
-          CANVAS_HEIGHT - CAR_HEIGHT < obs.y + OBSTACLE_HEIGHT &&
-          CANVAS_HEIGHT > obs.y
+          obs.lane === g.myLane &&
+          obs.y > CANVAS_HEIGHT - CAR_HEIGHT - 50 &&
+          obs.y < CANVAS_HEIGHT
         ) {
           hitObstacle = true;
         }
       });
 
-      // Draw player car
-      drawCar(ctx, g.myCarX, CANVAS_HEIGHT - CAR_HEIGHT - 20, '#FFD700');
+      // Draw player car (full opacity)
+      const playerLaneX = ROAD_LEFT + g.myLane * LANE_WIDTH + (LANE_WIDTH - CAR_WIDTH) / 2;
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(playerLaneX, CANVAS_HEIGHT - CAR_HEIGHT - 10, CAR_WIDTH, CAR_HEIGHT);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(playerLaneX + 5, CANVAS_HEIGHT - CAR_HEIGHT - 10 + 3, CAR_WIDTH - 10, 12);
 
-      // Draw opponent car if PvP
-      if (gameMode === 'pvp' && opponent) {
-        drawCar(ctx, opponent.x, CANVAS_HEIGHT - CAR_HEIGHT - 20, '#FF1493');
+      // Draw opponent ghosts if PvP
+      if (gameMode === 'pvp' && opponents.length > 0) {
+        opponents.forEach((opp, idx) => {
+          const oppLane = Math.floor((opp.x - ROAD_LEFT) / LANE_WIDTH);
+          ctx.globalAlpha = 0.3;
+          ctx.fillStyle = COLORS[(idx * 3) % COLORS.length];
+          ctx.fillRect(playerLaneX, CANVAS_HEIGHT - CAR_HEIGHT - 10, CAR_WIDTH, CAR_HEIGHT);
+          ctx.globalAlpha = 1;
+        });
       }
 
       // Draw HUD
       ctx.fillStyle = '#000000';
-      ctx.font = '18px IBM Plex Mono';
-      ctx.fillText(`Distance: ${Math.floor(g.score)}`, 20, 40);
-      ctx.fillText(`Avoided: ${g.carAvoided}`, 20, 70);
-      
-      if (opponent) {
-        ctx.fillText(`Opponent: ${opponent.score ? Math.floor(opponent.score) : 0}`, CANVAS_WIDTH - 300, 40);
-      }
+      ctx.font = '14px IBM Plex Mono';
+      ctx.fillText(`Distance: ${Math.floor(g.score)}`, 10, 20);
+      ctx.fillText(`Avoided: ${g.carAvoided}`, 10, 40);
+      ctx.fillText(`Speed: ${g.baseSpeed.toFixed(1)}`, 10, 60);
 
       setScore(Math.floor(g.score));
       setCarAvoided(g.carAvoided);
@@ -225,14 +242,14 @@ export default function Racing({ game, user, gameMode, onExit }) {
           body: JSON.stringify({
             sessionId: g.sessionId,
             userId: user.id,
-            x: g.myCarX,
+            x: playerLaneX,
             score: g.score,
             avoided: g.carAvoided
           })
         }).then(r => r.json()).then(data => {
           if (data.players) {
-            const opp = data.players.find(p => p.userId !== user.id);
-            if (opp) setOpponent(opp);
+            const opps = data.players.filter(p => p.userId !== user.id);
+            setOpponents(opps);
           }
         }).catch(() => {});
       }
@@ -242,23 +259,24 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
     const rafId = requestAnimationFrame(gameLoop);
     return () => cancelAnimationFrame(rafId);
-  }, [gameMode, user, opponent]);
+  }, [gameMode, user, opponents]);
 
   const resetGame = () => {
     gameRef.current = {
-      myCarX: CANVAS_WIDTH / 2 - CAR_WIDTH / 2,
+      myCarX: 0,
+      myLane: Math.floor(NUM_LANES / 2),
       bgY1: 0,
       bgY2: -CANVAS_HEIGHT,
-      roadSpeed: 3,
+      baseSpeed: 2,
       score: 0,
       carAvoided: 0,
-      seed: gameRef.current.seed,
-      running: true,
-      seededRandom: null
+      seed: Math.floor(Math.random() * 10000),
+      running: true
     };
 
     setScore(0);
     setCarAvoided(0);
+    setOpponents([]);
     setGameState('playing');
   };
 
@@ -286,13 +304,15 @@ export default function Racing({ game, user, gameMode, onExit }) {
           style={{
             border: '2px solid #C0C0C0',
             borderRadius: '4px',
-            backgroundColor: '#FFF8DC'
+            backgroundColor: '#FFF8DC',
+            imageRendering: 'pixelated'
           }}
         />
 
-        <div style={{ fontSize: '14px', color: '#000000', textAlign: 'center' }}>
-          <div><strong>A/←</strong> Move Left | <strong>D/→</strong> Move Right</div>
-          <div>Dodge incoming traffic! {gameMode === 'pvp' ? 'Compete with opponent!' : 'Survive as long as you can.'}</div>
+        <div style={{ fontSize: '12px', color: '#000000', textAlign: 'center' }}>
+          <div><strong>A/←</strong> Left Lane | <strong>D/→</strong> Right Lane</div>
+          <div>Dodge traffic on a 10-lane highway! Speed increases exponentially.</div>
+          {gameMode === 'pvp' && <div>Opponents shown as semi-transparent ghosts.</div>}
         </div>
       </div>
 
@@ -303,24 +323,24 @@ export default function Racing({ game, user, gameMode, onExit }) {
           left: '50%',
           transform: 'translate(-50%, -50%)',
           backgroundColor: 'rgba(255, 248, 220, 0.98)',
-          padding: '50px',
+          padding: '40px',
           borderRadius: '8px',
           border: '2px solid #C0C0C0',
           textAlign: 'center',
           zIndex: 1000
         }}>
-          <h2 style={{ color: '#FF8C00', marginBottom: '20px' }}>GAME OVER!</h2>
-          <div style={{ fontSize: '18px', color: '#000000', marginBottom: '30px' }}>
-            <div>Your Distance: {score}</div>
+          <h2 style={{ color: '#FF8C00', marginBottom: '15px' }}>GAME OVER!</h2>
+          <div style={{ fontSize: '16px', color: '#000000', marginBottom: '20px' }}>
+            <div>Distance: {score}</div>
             <div>Cars Avoided: {carAvoided}</div>
-            {opponent && <div style={{ marginTop: '20px', color: '#999' }}>Opponent Distance: {Math.floor(opponent.score || 0)}</div>}
+            <div>Max Speed: {(2 + Math.min(score * 0.0015, 15)).toFixed(1)}</div>
           </div>
           <button onClick={resetGame} style={{
             borderColor: '#FFD700',
             color: '#000000',
             backgroundColor: 'rgba(255, 215, 0, 0.2)',
-            padding: '10px 30px',
-            fontSize: '16px'
+            padding: '8px 20px',
+            fontSize: '14px'
           }}>
             PLAY AGAIN
           </button>
