@@ -3,6 +3,7 @@ import TicTacToe from './games/TicTacToe';
 import RockPaperScissors from './games/RockPaperScissors';
 import NumberGuess from './games/NumberGuess';
 import Racing from './games/Racing';
+import GameOfLife from './games/GameOfLife';
 
 export default function GameLobby({ user }) {
   const [view, setView] = useState('games'); // 'games', 'modeselect', 'playing'
@@ -13,7 +14,8 @@ export default function GameLobby({ user }) {
     { id: 'tictactoe', name: 'Tic Tac Toe', emoji: '🎯', color: '#FF6B6B' },
     { id: 'rockpaperscissors', name: 'Rock Paper Scissors', emoji: '✂️', color: '#4ECDC4' },
     { id: 'numberguess', name: 'Number Guess', emoji: '🔢', color: '#45B7D1' },
-    { id: 'racing', name: 'Highway Racer', emoji: '🏎️', color: '#FFA07A' }
+    { id: 'racing', name: 'Highway Racer', emoji: '🏎️', color: '#FFA07A' },
+    { id: 'gameoflife', name: 'Game of Life', emoji: '🧬', color: '#98D8C8' }
   ];
 
   const selectGame = (gameId) => {
@@ -47,7 +49,8 @@ export default function GameLobby({ user }) {
     const GameComponent = selectedGame.game_type === 'tictactoe' ? TicTacToe
       : selectedGame.game_type === 'rockpaperscissors' ? RockPaperScissors
       : selectedGame.game_type === 'numberguess' ? NumberGuess
-      : Racing;
+      : selectedGame.game_type === 'racing' ? Racing
+      : GameOfLife;
 
     return (
       <div style={{ width: '100%', height: '100%' }}>
@@ -122,9 +125,9 @@ export default function GameLobby({ user }) {
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
+        gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '30px',
-        maxWidth: '800px',
+        maxWidth: '900px',
         margin: '0 auto'
       }}>
         {gameList.map((game) => (

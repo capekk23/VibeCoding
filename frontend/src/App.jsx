@@ -3,6 +3,7 @@ import './styles/cyberpunk.css';
 import Auth from './components/Auth';
 import Chat from './components/Chat';
 import GameLobby from './components/GameLobby';
+import AnimatedParticles from './components/AnimatedParticles';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -27,6 +28,7 @@ export default function App() {
 
   return (
     <div className="flex-column" style={{ height: '100vh', width: '100vw' }}>
+      <AnimatedParticles />
       {/* Header */}
       <div className="panel panel-magenta" style={{ margin: 0, borderRadius: 0 }}>
         <div className="flex-between">
