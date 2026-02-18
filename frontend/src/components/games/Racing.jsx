@@ -2,52 +2,64 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function Racing({ game, user, gameMode, onExit }) {
   const canvasRef = useRef(null);
-  const [gameState, setGameState] = useState('ready');
+  const [gameState, setGameState] = useState('playing');
+  const [score, setScore] = useState(0);
+  const [carAvoided, setCarAvoided] = useState(0);
   const keysPressed = useRef({});
 
   const gameRef = useRef({
-    player: {
-      x: 200,
-      y: 400,
-      angle: 0,
-      speed: 0,
-      maxSpeed: 8,
-      friction: 0.92,
-      width: 20,
-      height: 30,
-      color: '#FFD700'
-    },
-    ai: {
-      x: 260,
-      y: 400,
-      angle: 0,
-      speed: 0,
-      maxSpeed: 6,
-      friction: 0.92,
-      width: 20,
-      height: 30,
-      color: '#FF8C00'
-    },
-    laps: { player: 0, ai: 0 },
-    finished: null
+    myCarX: 0,
+    bgY1: 0,
+    bgY2: 0,
+    roadSpeed: 3,
+    score: 0,
+    carAvoided: 0,
+    obstacles: [],
+    running: true
   });
 
-  // Simple rectangular track - road is the drivable area
-  const ROAD_LEFT = 150;
-  const ROAD_RIGHT = 1050;
-  const ROAD_TOP = 100;
-  const ROAD_BOTTOM = 700;
-  const WALL_THICKNESS = 30;
+  // Canvas dimensions
+  const CANVAS_WIDTH = 1200;
+  const CANVAS_HEIGHT = 800;
+  const CAR_WIDTH = 80;
+  const CAR_HEIGHT = 150;
+  const OBSTACLE_WIDTH = 80;
+  const OBSTACLE_HEIGHT = 150;
+  const ROAD_LEFT = 200;
+  const ROAD_RIGHT = 1000;
 
-  // Checkpoint lines to detect lap completion
-  const checkpointY = 400;
+  // Create simple gradient as "road"
+  const drawRoad = (ctx, offsetY) => {
+    ctx.fillStyle = '#E8D4A8';
+    ctx.fillRect(ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, CANVAS_HEIGHT);
+    
+    // Road stripes
+    ctx.strokeStyle = '#DAA520';
+    ctx.lineWidth = 3;
+    for (let i = -CANVAS_HEIGHT; i < CANVAS_HEIGHT * 2; i += 100) {
+      ctx.beginPath();
+      ctx.moveTo(CANVAS_WIDTH / 2, i + offsetY);
+      ctx.lineTo(CANVAS_WIDTH / 2, i + 50 + offsetY);
+      ctx.stroke();
+    }
+  };
+
+  const drawCar = (ctx, x, y, color) => {
+    // Car body
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, CAR_WIDTH, CAR_HEIGHT);
+    
+    // Windshield
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(x + 10, y + 10, CAR_WIDTH - 20, 30);
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      keysPressed.current[e.key.toLowerCase()] = true;
+      keysPressed.current[e.keyCode] = true;
     };
     const handleKeyUp = (e) => {
-      keysPressed.current[e.key.toLowerCase()] = false;
+      keysPressed.current[e.keyCode] = false;
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -57,163 +69,106 @@ export default function Racing({ game, user, gameMode, onExit }) {
     };
   }, []);
 
-  const isInWall = (x, y, width, height) => {
-    const left = x - width / 2;
-    const right = x + width / 2;
-    const top = y - height / 2;
-    const bottom = y + height / 2;
-
-    // Top wall
-    if (top < ROAD_TOP + WALL_THICKNESS && y < ROAD_TOP + 100) return true;
-    // Bottom wall
-    if (bottom > ROAD_BOTTOM - WALL_THICKNESS && y > ROAD_BOTTOM - 100) return true;
-    // Left wall
-    if (left < ROAD_LEFT + WALL_THICKNESS && x < ROAD_LEFT + 150) return true;
-    // Right wall
-    if (right > ROAD_RIGHT - WALL_THICKNESS && x > ROAD_RIGHT - 150) return true;
-
-    return false;
-  };
-
-  const updateCar = (car, controls) => {
-    // Acceleration/braking
-    if (controls.forward) {
-      car.speed = Math.min(car.speed + 0.4, car.maxSpeed);
-    } else if (controls.backward) {
-      car.speed = Math.max(car.speed - 0.4, -car.maxSpeed * 0.4);
-    } else {
-      car.speed *= car.friction;
-    }
-
-    // Steering
-    if (controls.left && car.speed !== 0) {
-      car.angle -= 0.08;
-    }
-    if (controls.right && car.speed !== 0) {
-      car.angle += 0.08;
-    }
-
-    // Update position
-    const newX = car.x + Math.cos(car.angle) * car.speed;
-    const newY = car.y + Math.sin(car.angle) * car.speed;
-
-    // Collision detection - bounce back
-    if (isInWall(newX, newY, car.width, car.height)) {
-      car.speed *= -0.6;
-    } else {
-      car.x = newX;
-      car.y = newY;
-    }
-
-    // Keep in bounds
-    car.x = Math.max(ROAD_LEFT + 20, Math.min(ROAD_RIGHT - 20, car.x));
-    car.y = Math.max(ROAD_TOP + 20, Math.min(ROAD_BOTTOM - 20, car.y));
-
-    // Lap detection - crossing the middle checkpoint
-    if (car.lastY !== undefined) {
-      const crossedCheckpoint = 
-        (car.lastY < checkpointY && car.y >= checkpointY) ||
-        (car.lastY > checkpointY && car.y <= checkpointY);
-      
-      if (crossedCheckpoint && Math.abs(car.x - 600) < 300) {
-        car.laps++;
-      }
-    }
-    car.lastY = car.y;
-  };
-
   useEffect(() => {
-    const gameLoop = () => {
-      const g = gameRef.current;
+    const g = gameRef.current;
+    g.myCarX = CANVAS_WIDTH / 2 - CAR_WIDTH / 2;
+    g.bgY1 = 0;
+    g.bgY2 = -CANVAS_HEIGHT;
 
-      updateCar(g.player, {
-        forward: keysPressed.current['w'] || keysPressed.current['arrowup'],
-        backward: keysPressed.current['s'] || keysPressed.current['arrowdown'],
-        left: keysPressed.current['a'] || keysPressed.current['arrowleft'],
-        right: keysPressed.current['d'] || keysPressed.current['arrowright']
+    // Initialize obstacles
+    for (let i = 0; i < 4; i++) {
+      g.obstacles.push({
+        x: Math.random() * (ROAD_RIGHT - ROAD_LEFT - OBSTACLE_WIDTH) + ROAD_LEFT,
+        y: -200 * i - 300,
+        order: i
       });
+    }
 
-      if (gameMode === 'pve') {
-        // Simple AI - follow a waypoint and avoid walls
-        const aiTarget = 600;
-        if (g.ai.x < aiTarget - 50) {
-          g.ai.angle = g.ai.angle * 0.9 + 0 * 0.1;
-        } else if (g.ai.x > aiTarget + 50) {
-          g.ai.angle = g.ai.angle * 0.9 + Math.PI * 0.1;
-        }
-        g.ai.speed = 4;
-        
-        updateCar(g.ai, {
-          forward: true,
-          backward: false,
-          left: false,
-          right: false
-        });
+    const gameLoop = () => {
+      if (!g.running) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        requestAnimationFrame(gameLoop);
+        return;
       }
 
-      // Check win condition
-      if (g.player.laps >= 3 && !g.finished) {
-        g.finished = 'player';
-        setGameState('finished');
-      } else if (gameMode === 'pve' && g.ai.laps >= 3 && !g.finished) {
-        g.finished = 'ai';
-        setGameState('finished');
+      const ctx = canvas.getContext('2d');
+
+      // Handle input
+      if (keysPressed.current[37] || keysPressed.current[65]) {
+        // Left arrow or A
+        g.myCarX = Math.max(ROAD_LEFT, g.myCarX - 6);
+      }
+      if (keysPressed.current[39] || keysPressed.current[68]) {
+        // Right arrow or D
+        g.myCarX = Math.min(ROAD_RIGHT - CAR_WIDTH, g.myCarX + 6);
+      }
+
+      // Update road
+      g.bgY1 += g.roadSpeed;
+      g.bgY2 += g.roadSpeed;
+
+      if (g.bgY1 >= CANVAS_HEIGHT) {
+        g.bgY1 = -CANVAS_HEIGHT;
+      }
+      if (g.bgY2 >= CANVAS_HEIGHT) {
+        g.bgY2 = -CANVAS_HEIGHT;
+      }
+
+      // Update score
+      g.score += 0.15;
+      if (g.score > 500) {
+        g.roadSpeed += 0.02;
       }
 
       // Draw
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#FFF8DC';
-        ctx.fillRect(0, 0, 1200, 800);
+      ctx.fillStyle = '#8B6F47';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        // Draw road
-        ctx.fillStyle = '#E8D4A8';
-        ctx.fillRect(ROAD_LEFT, ROAD_TOP, ROAD_RIGHT - ROAD_LEFT, ROAD_BOTTOM - ROAD_TOP);
+      drawRoad(ctx, g.bgY1);
+      drawRoad(ctx, g.bgY2);
 
-        // Draw walls
-        ctx.fillStyle = '#8B6F47';
-        ctx.fillRect(0, 0, 1200, ROAD_TOP); // Top
-        ctx.fillRect(0, ROAD_BOTTOM, 1200, 800); // Bottom
-        ctx.fillRect(0, ROAD_TOP, ROAD_LEFT, ROAD_BOTTOM - ROAD_TOP); // Left
-        ctx.fillRect(ROAD_RIGHT, ROAD_TOP, 1200 - ROAD_RIGHT, ROAD_BOTTOM - ROAD_TOP); // Right
+      // Update and draw obstacles
+      let hitObstacle = false;
+      g.obstacles.forEach((obs) => {
+        obs.y += g.roadSpeed;
 
-        // Draw checkpoint line
-        ctx.strokeStyle = '#DAA520';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([10, 10]);
-        ctx.beginPath();
-        ctx.moveTo(ROAD_LEFT + 50, checkpointY);
-        ctx.lineTo(ROAD_RIGHT - 50, checkpointY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Draw cars
-        const drawCar = (car) => {
-          ctx.save();
-          ctx.translate(car.x, car.y);
-          ctx.rotate(car.angle);
-          ctx.fillStyle = car.color;
-          ctx.fillRect(-car.width / 2, -car.height / 2, car.width, car.height);
-          ctx.fillStyle = '#000000';
-          ctx.fillRect(-car.width / 2, -car.height / 2, car.width, 8);
-          ctx.restore();
-        };
-
-        drawCar(g.player);
-        if (gameMode === 'pve') {
-          drawCar(g.ai);
+        if (obs.y > CANVAS_HEIGHT) {
+          obs.y = -OBSTACLE_HEIGHT - 100;
+          obs.x = Math.random() * (ROAD_RIGHT - ROAD_LEFT - OBSTACLE_WIDTH) + ROAD_LEFT;
+          g.carAvoided++;
         }
 
-        // Draw HUD
-        ctx.fillStyle = '#000000';
-        ctx.font = '16px IBM Plex Mono';
-        ctx.fillText(`You: ${g.player.laps} laps`, 20, 35);
-        if (gameMode === 'pve') {
-          ctx.fillText(`AI: ${g.ai.laps} laps`, 20, 60);
+        drawCar(ctx, obs.x, obs.y, '#FF8C00');
+
+        // Collision detection
+        if (
+          g.myCarX < obs.x + OBSTACLE_WIDTH &&
+          g.myCarX + CAR_WIDTH > obs.x &&
+          CANVAS_HEIGHT - CAR_HEIGHT < obs.y + OBSTACLE_HEIGHT &&
+          CANVAS_HEIGHT > obs.y
+        ) {
+          hitObstacle = true;
         }
-        ctx.font = '12px IBM Plex Mono';
-        ctx.fillText('Speed: First to 3 laps', 20, 800 - 10);
+      });
+
+      // Draw player car
+      drawCar(ctx, g.myCarX, CANVAS_HEIGHT - CAR_HEIGHT - 20, '#FFD700');
+
+      // Draw HUD
+      ctx.fillStyle = '#000000';
+      ctx.font = '18px IBM Plex Mono';
+      ctx.fillText(`Distance: ${Math.floor(g.score)}`, 20, 40);
+      ctx.fillText(`Avoided: ${g.carAvoided}`, 20, 70);
+
+      setScore(Math.floor(g.score));
+      setCarAvoided(g.carAvoided);
+
+      if (hitObstacle) {
+        g.running = false;
+        setGameState('finished');
+        return;
       }
 
       requestAnimationFrame(gameLoop);
@@ -221,21 +176,38 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
     const rafId = requestAnimationFrame(gameLoop);
     return () => cancelAnimationFrame(rafId);
-  }, [gameMode]);
+  }, []);
 
   const resetGame = () => {
     gameRef.current = {
-      player: { ...gameRef.current.player, x: 200, y: 400, angle: 0, speed: 0, laps: 0, lastY: undefined },
-      ai: { ...gameRef.current.ai, x: 260, y: 400, angle: 0, speed: 0, laps: 0, lastY: undefined },
-      finished: null
+      myCarX: CANVAS_WIDTH / 2 - CAR_WIDTH / 2,
+      bgY1: 0,
+      bgY2: -CANVAS_HEIGHT,
+      roadSpeed: 3,
+      score: 0,
+      carAvoided: 0,
+      obstacles: [],
+      running: true
     };
-    setGameState('ready');
+
+    // Reinitialize obstacles
+    for (let i = 0; i < 4; i++) {
+      gameRef.current.obstacles.push({
+        x: Math.random() * (ROAD_RIGHT - ROAD_LEFT - OBSTACLE_WIDTH) + ROAD_LEFT,
+        y: -200 * i - 300,
+        order: i
+      });
+    }
+
+    setScore(0);
+    setCarAvoided(0);
+    setGameState('playing');
   };
 
   return (
     <div className="flex-column" style={{ width: '100%', height: '100%', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>🏎️ CIRCUIT RACING {gameMode === 'pve' ? '(vs AI)' : '(Race)'}</h2>
+        <h2>🏎️ HIGHWAY RACER</h2>
         <button onClick={onExit} style={{ borderColor: '#8B4513', color: '#000000' }}>
           EXIT
         </button>
@@ -251,8 +223,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
       }}>
         <canvas
           ref={canvasRef}
-          width={1200}
-          height={800}
+          width={CANVAS_WIDTH}
+          height={CANVAS_HEIGHT}
           style={{
             border: '2px solid #C0C0C0',
             borderRadius: '4px',
@@ -261,8 +233,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
         />
 
         <div style={{ fontSize: '14px', color: '#000000', textAlign: 'center' }}>
-          <div><strong>W/↑</strong> Forward | <strong>S/↓</strong> Brake | <strong>A/←</strong> Left | <strong>D/→</strong> Right</div>
-          <div>Cross the dashed line to count a lap. First to 3 laps wins!</div>
+          <div><strong>A/←</strong> Move Left | <strong>D/→</strong> Move Right</div>
+          <div>Dodge incoming traffic! Avoid cars and survive as long as you can.</div>
         </div>
       </div>
 
@@ -272,22 +244,26 @@ export default function Racing({ game, user, gameMode, onExit }) {
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          backgroundColor: 'rgba(255, 248, 220, 0.95)',
-          padding: '40px',
+          backgroundColor: 'rgba(255, 248, 220, 0.98)',
+          padding: '50px',
           borderRadius: '8px',
           border: '2px solid #C0C0C0',
           textAlign: 'center',
           zIndex: 1000
         }}>
-          <h2 style={{ color: '#DAA520', marginBottom: '20px' }}>
-            {gameRef.current.finished === 'player' ? '🏆 YOU WON!' : '🏁 RACE OVER!'}
-          </h2>
+          <h2 style={{ color: '#FF8C00', marginBottom: '20px' }}>GAME OVER!</h2>
+          <div style={{ fontSize: '18px', color: '#000000', marginBottom: '30px' }}>
+            <div>Distance: {score}</div>
+            <div>Cars Avoided: {carAvoided}</div>
+          </div>
           <button onClick={resetGame} style={{
             borderColor: '#FFD700',
             color: '#000000',
-            backgroundColor: 'rgba(255, 215, 0, 0.2)'
+            backgroundColor: 'rgba(255, 215, 0, 0.2)',
+            padding: '10px 30px',
+            fontSize: '16px'
           }}>
-            RACE AGAIN
+            PLAY AGAIN
           </button>
         </div>
       )}
