@@ -9,7 +9,7 @@ export default function Racing({ game, user, gameMode, onExit }) {
   // Game objects
   const gameRef = useRef({
     player: {
-      x: 100,
+      x: 1100,
       y: 100,
       angle: 0,
       vx: 0,
@@ -22,8 +22,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
       color: '#FFD700'
     },
     ai: {
-      x: 150,
-      y: 100,
+      x: 1100,
+      y: 150,
       angle: 0,
       vx: 0,
       vy: 0,
@@ -38,26 +38,45 @@ export default function Racing({ game, user, gameMode, onExit }) {
     finished: null
   });
 
-  // Track wall segments (simplified circuit)
-  const walls = [
-    // Outer walls
-    { x1: 50, y1: 50, x2: 450, y2: 50 },
-    { x1: 450, y1: 50, x2: 450, y2: 350 },
-    { x1: 450, y1: 350, x2: 50, y2: 350 },
-    { x1: 50, y1: 350, x2: 50, y2: 50 },
-    // Inner walls (chicane)
-    { x1: 100, y1: 120, x2: 150, y2: 120 },
-    { x1: 150, y1: 120, x2: 200, y2: 150 },
-    { x1: 200, y1: 150, x2: 150, y2: 180 },
-    { x1: 150, y1: 180, x2: 100, y2: 180 },
-    // More inner walls
-    { x1: 300, y1: 200, x2: 350, y2: 200 },
-    { x1: 350, y1: 200, x2: 380, y2: 250 },
-    { x1: 380, y1: 250, x2: 350, y2: 300 },
-    { x1: 350, y1: 300, x2: 300, y2: 300 }
-  ];
+  // O-shaped track with outer and inner oval walls
+  const generateOvalWalls = () => {
+    const walls = [];
+    const centerX = 600;
+    const centerY = 400;
+    const outerRadiusX = 500;
+    const outerRadiusY = 300;
+    const innerRadiusX = 300;
+    const innerRadiusY = 180;
+    
+    // Outer oval
+    const outerSegments = 120;
+    for (let i = 0; i < outerSegments; i++) {
+      const angle1 = (i / outerSegments) * Math.PI * 2;
+      const angle2 = ((i + 1) / outerSegments) * Math.PI * 2;
+      const x1 = centerX + Math.cos(angle1) * outerRadiusX;
+      const y1 = centerY + Math.sin(angle1) * outerRadiusY;
+      const x2 = centerX + Math.cos(angle2) * outerRadiusX;
+      const y2 = centerY + Math.sin(angle2) * outerRadiusY;
+      walls.push({ x1, y1, x2, y2 });
+    }
+    
+    // Inner oval
+    const innerSegments = 120;
+    for (let i = 0; i < innerSegments; i++) {
+      const angle1 = (i / innerSegments) * Math.PI * 2;
+      const angle2 = ((i + 1) / innerSegments) * Math.PI * 2;
+      const x1 = centerX + Math.cos(angle1) * innerRadiusX;
+      const y1 = centerY + Math.sin(angle1) * innerRadiusY;
+      const x2 = centerX + Math.cos(angle2) * innerRadiusX;
+      const y2 = centerY + Math.sin(angle2) * innerRadiusY;
+      walls.push({ x1, y1, x2, y2 });
+    }
+    
+    return walls;
+  };
 
-  const checkpointBox = { x: 60, y: 60, w: 80, h: 60 };
+  const walls = generateOvalWalls();
+  const checkpointBox = { x: 1050, y: 350, w: 100, h: 100 };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -185,7 +204,7 @@ export default function Racing({ game, user, gameMode, onExit }) {
       if (canvas) {
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#FFF8DC';
-        ctx.fillRect(0, 0, 500, 400);
+        ctx.fillRect(0, 0, 1200, 800);
 
         // Draw checkpoint
         ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
@@ -242,8 +261,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
   const resetGame = () => {
     gameRef.current = {
-      player: { ...gameRef.current.player, x: 100, y: 100, angle: 0, speed: 0, laps: 0 },
-      ai: { ...gameRef.current.ai, x: 150, y: 100, angle: 0, speed: 0, laps: 0 },
+      player: { ...gameRef.current.player, x: 1100, y: 100, angle: 0, speed: 0, laps: 0 },
+      ai: { ...gameRef.current.ai, x: 1100, y: 150, angle: 0, speed: 0, laps: 0 },
       finished: null
     };
     setGameState('ready');
@@ -268,8 +287,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
       }}>
         <canvas
           ref={canvasRef}
-          width={500}
-          height={400}
+          width={1200}
+          height={800}
           style={{
             border: '2px solid #C0C0C0',
             borderRadius: '4px',
