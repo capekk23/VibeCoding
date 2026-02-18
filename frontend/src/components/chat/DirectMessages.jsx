@@ -206,7 +206,7 @@ export default function DirectMessages({ user }) {
                     style={{
                       borderColor: msg.from_user_id === user.id ? '#FFD700' : '#A39E94',
                       borderWidth: msg.from_user_id === user.id ? '3px' : '2px',
-                      backgroundColor: msg.from_user_id === user.id ? 'rgba(255, 248, 220, 0.9)' : 'rgba(163, 158, 148, 0.05)',
+                      backgroundColor: 'rgba(163, 158, 148, 0.05)',
                       alignSelf: msg.from_user_id === user.id ? 'flex-end' : 'flex-start',
                       maxWidth: '70%'
                     }}

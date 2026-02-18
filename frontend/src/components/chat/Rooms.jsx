@@ -17,8 +17,8 @@ export default function Rooms({ user }) {
 
   useEffect(() => {
     if (selectedRoom) {
-      fetchRoomMessages(selectedRoom.id);
-      const interval = setInterval(() => fetchRoomMessages(selectedRoom.id), 2000);
+      fetchMessages(selectedRoom.id);
+      const interval = setInterval(() => fetchMessages(selectedRoom.id), 2000);
       return () => clearInterval(interval);
     }
   }, [selectedRoom]);
@@ -39,7 +39,7 @@ export default function Rooms({ user }) {
     }
   };
 
-  const fetchRoomMessages = async (roomId) => {
+  const fetchMessages = async (roomId) => {
     try {
       const response = await fetch(`/api/rooms/${roomId}/messages`);
       if (response.ok) {
@@ -47,7 +47,7 @@ export default function Rooms({ user }) {
         setMessages(data);
       }
     } catch (err) {
-      console.error('Error fetching room messages:', err);
+      console.error('Error fetching messages:', err);
     }
   };
 
@@ -59,17 +59,12 @@ export default function Rooms({ user }) {
       const response = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newRoomName,
-          creator_id: user.id
-        })
+        body: JSON.stringify({ name: newRoomName })
       });
 
       if (response.ok) {
-        const data = await response.json();
         setNewRoomName('');
         setShowCreateForm(false);
-        setSelectedRoom(data);
         fetchRooms();
       }
     } catch (err) {
@@ -79,17 +74,16 @@ export default function Rooms({ user }) {
 
   const joinRoom = async (roomId) => {
     try {
-      await fetch(`/api/rooms/${roomId}/join`, {
+      const response = await fetch(`/api/rooms/${roomId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: user.id })
       });
-      
-      const response = await fetch(`/api/rooms/${roomId}`);
+
       if (response.ok) {
-        const data = await response.json();
-        setSelectedRoom(data);
-        fetchRoomMessages(roomId);
+        const room = rooms.find(r => r.id === roomId);
+        setSelectedRoom(room);
+        fetchMessages(roomId);
       }
     } catch (err) {
       console.error('Error joining room:', err);
@@ -100,7 +94,7 @@ export default function Rooms({ user }) {
     if (!input.trim() || !selectedRoom) return;
 
     try {
-      await fetch(`/api/rooms/${selectedRoom.id}/messages`, {
+      const response = await fetch(`/api/rooms/${selectedRoom.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,8 +104,10 @@ export default function Rooms({ user }) {
         })
       });
 
-      setInput('');
-      fetchRoomMessages(selectedRoom.id);
+      if (response.ok) {
+        setInput('');
+        fetchMessages(selectedRoom.id);
+      }
     } catch (err) {
       console.error('Error sending message:', err);
     }
@@ -145,7 +141,7 @@ export default function Rooms({ user }) {
             color: '#8B7355'
           }}
         >
-          ➕ NEW ROOM
+          ➕ CREATE ROOM
         </button>
 
         {showCreateForm && (
@@ -175,9 +171,9 @@ export default function Rooms({ user }) {
               onClick={() => joinRoom(room.id)}
               style={{
                 textAlign: 'left',
-                borderColor: selectedRoom?.id === room.id ? '#8B7355' : '#9B8B7E',
-                color: selectedRoom?.id === room.id ? '#8B7355' : '#9B8B7E',
-                backgroundColor: selectedRoom?.id === room.id ? 'rgba(0, 255, 0, 0.2)' : 'transparent'
+                borderColor: selectedRoom?.id === room.id ? '#FFD700' : '#A39E94',
+                color: selectedRoom?.id === room.id ? '#FFD700' : '#9B8B7E',
+                backgroundColor: selectedRoom?.id === room.id ? 'rgba(255, 215, 0, 0.2)' : 'transparent'
               }}
             >
               🏠 {room.name}
@@ -218,7 +214,7 @@ export default function Rooms({ user }) {
                     style={{
                       borderColor: msg.username === user.username ? '#FFD700' : '#A39E94',
                       borderWidth: msg.username === user.username ? '3px' : '2px',
-                      backgroundColor: msg.username === user.username ? 'rgba(255, 248, 220, 0.9)' : 'rgba(163, 158, 148, 0.05)'
+                      backgroundColor: 'rgba(163, 158, 148, 0.05)'
                     }}
                   >
                     <div style={{
@@ -264,9 +260,10 @@ export default function Rooms({ user }) {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            textAlign: 'center'
+            textAlign: 'center',
+            fontSize: '18px'
           }}>
-            SELECT OR CREATE A ROOM
+            SELECT A ROOM
           </div>
         )}
       </div>
