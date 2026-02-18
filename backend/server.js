@@ -14,11 +14,15 @@ app.use(express.json());
 const authRoutes = require('./routes/auth');
 const messagesRoutes = require('./routes/messages');
 const gamesRoutes = require('./routes/games');
+const roomsRoutes = require('./routes/rooms');
+const dmRoutes = require('./routes/dm');
 
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/games', gamesRoutes);
+app.use('/api/rooms', roomsRoutes);
+app.use('/api/dm', dmRoutes);
 
 // Serve static files from public directory (built frontend)
 app.use(express.static(path.join(__dirname, '../public')));

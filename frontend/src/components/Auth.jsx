@@ -36,7 +36,7 @@ export default function Auth({ onLogin }) {
   return (
     <div className="flex-center" style={{ height: '100vh', width: '100vw' }}>
       <div className="panel panel-magenta" style={{ width: '400px' }}>
-        <h1 style={{ textAlign: 'center' }}>⚡ VIBE AUTH ⚡</h1>
+        <h1 style={{ textAlign: 'center' }}>✨ VIBE CHECK ✨</h1>
 
         <form onSubmit={handleSubmit} className="flex-column">
           <input
@@ -54,8 +54,8 @@ export default function Auth({ onLogin }) {
 
           {error && (
             <div style={{
-              color: '#FF0000',
-              textShadow: '0 0 10px #FF0000',
+              color: '#8B4513',
+              textShadow: '0 0 10px #8B4513',
               margin: '10px 0'
             }}>
               ERROR: {error}
@@ -72,8 +72,8 @@ export default function Auth({ onLogin }) {
             onClick={() => setIsLogin(!isLogin)}
             style={{
               background: 'transparent',
-              borderColor: '#00FF00',
-              color: '#00FF00'
+              borderColor: '#8B7355',
+              color: '#8B7355'
             }}
           >
             {isLogin ? 'CREATE ACCOUNT' : 'ALREADY HAVE ACCOUNT'}

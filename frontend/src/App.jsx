@@ -7,6 +7,7 @@ import GameLobby from './components/GameLobby';
 export default function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('chat'); // chat, games
+  const [chatType, setChatType] = useState('public'); // public, rooms, dm
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -42,19 +43,37 @@ export default function App() {
       {/* Navigation */}
       <div style={{ display: 'flex', gap: '10px', padding: '10px 20px' }}>
         <button
-          onClick={() => setView('chat')}
+          onClick={() => { setView('chat'); setChatType('public'); }}
           style={{
-            borderColor: view === 'chat' ? '#00FF00' : '#00FFFF',
-            color: view === 'chat' ? '#00FF00' : '#00FFFF'
+            borderColor: view === 'chat' && chatType === 'public' ? '#8B7355' : '#9B8B7E',
+            color: view === 'chat' && chatType === 'public' ? '#8B7355' : '#9B8B7E'
           }}
         >
-          💬 CHAT
+          💬 PUBLIC CHAT
+        </button>
+        <button
+          onClick={() => { setView('chat'); setChatType('rooms'); }}
+          style={{
+            borderColor: view === 'chat' && chatType === 'rooms' ? '#8B7355' : '#9B8B7E',
+            color: view === 'chat' && chatType === 'rooms' ? '#8B7355' : '#9B8B7E'
+          }}
+        >
+          🏠 ROOMS
+        </button>
+        <button
+          onClick={() => { setView('chat'); setChatType('dm'); }}
+          style={{
+            borderColor: view === 'chat' && chatType === 'dm' ? '#8B7355' : '#9B8B7E',
+            color: view === 'chat' && chatType === 'dm' ? '#8B7355' : '#9B8B7E'
+          }}
+        >
+          ✉️ DIRECT MSG
         </button>
         <button
           onClick={() => setView('games')}
           style={{
-            borderColor: view === 'games' ? '#00FF00' : '#00FFFF',
-            color: view === 'games' ? '#00FF00' : '#00FFFF'
+            borderColor: view === 'games' ? '#8B7355' : '#9B8B7E',
+            color: view === 'games' ? '#8B7355' : '#9B8B7E'
           }}
         >
           🎮 GAMES
@@ -63,7 +82,7 @@ export default function App() {
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
-        {view === 'chat' && <Chat user={user} />}
+        {view === 'chat' && <Chat user={user} chatType={chatType} />}
         {view === 'games' && <GameLobby user={user} />}
       </div>
     </div>

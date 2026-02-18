@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function RockPaperScissors({ game, user, onExit }) {
+export default function RockPaperScissors({ game, user, gameMode, onExit }) {
   const [playerChoice, setPlayerChoice] = useState(null);
   const [computerChoice, setComputerChoice] = useState(null);
   const [result, setResult] = useState(null);
@@ -49,21 +49,21 @@ export default function RockPaperScissors({ game, user, onExit }) {
     <div className="flex-column" style={{ width: '100%', height: '100%', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2 className="glow-text-lime">✂️ ROCK PAPER SCISSORS</h2>
-        <button onClick={onExit} style={{ borderColor: '#FF0000', color: '#FF0000' }}>EXIT</button>
+        <button onClick={onExit} style={{ borderColor: '#8B4513', color: '#8B4513' }}>EXIT</button>
       </div>
 
       {/* Scores */}
       <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '30px' }}>
         <div className="panel panel-magenta" style={{ flex: 1, margin: '0 10px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#00FF00', fontSize: '24px', fontWeight: 'bold' }}>YOU</div>
-            <div style={{ fontSize: '32px', marginTop: '10px', color: '#00FFFF' }}>{scores.player}</div>
+            <div style={{ color: '#008B8B', fontSize: '18px', fontWeight: 'bold' }}>YOU</div>
+            <div style={{ fontSize: '28px', marginTop: '10px', color: '#FFD700' }}>{scores.player}</div>
           </div>
         </div>
-        <div className="panel panel-cyan" style={{ flex: 1, margin: '0 10px' }}>
+        <div className="panel" style={{ flex: 1, margin: '0 10px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#FF00FF', fontSize: '24px', fontWeight: 'bold' }}>COMPUTER</div>
-            <div style={{ fontSize: '32px', marginTop: '10px', color: '#00FFFF' }}>{scores.computer}</div>
+            <div style={{ color: '#1A2332', fontSize: '18px', fontWeight: 'bold' }}>COMPUTER</div>
+            <div style={{ fontSize: '28px', marginTop: '10px', color: '#A39E94' }}>{scores.computer}</div>
           </div>
         </div>
       </div>
@@ -78,9 +78,9 @@ export default function RockPaperScissors({ game, user, onExit }) {
               style={{
                 padding: '20px 30px',
                 fontSize: '18px',
-                borderColor: playerChoice === choice ? '#00FF00' : '#00FFFF',
-                color: playerChoice === choice ? '#00FF00' : '#00FFFF',
-                backgroundColor: playerChoice === choice ? 'rgba(0, 255, 0, 0.2)' : 'var(--dark-panel)'
+                borderColor: playerChoice === choice ? '#FFD700' : '#A39E94',
+                color: '#1A2332',
+                backgroundColor: playerChoice === choice ? 'rgba(255, 215, 0, 0.2)' : 'white'
               }}
             >
               {choice === 'ROCK' && '🪨'}
@@ -97,22 +97,23 @@ export default function RockPaperScissors({ game, user, onExit }) {
             <div style={{
               fontSize: '24px',
               marginBottom: '20px',
-              color: result === 'WIN' ? '#00FF00' : result === 'LOSE' ? '#FF0000' : '#FFFF00',
-              textShadow: `0 0 20px ${result === 'WIN' ? '#00FF00' : result === 'LOSE' ? '#FF0000' : '#FFFF00'}`
+              color: result === 'WIN' ? '#FFD700' : result === 'LOSE' ? '#8B4513' : '#9B8B7E',
+              fontWeight: 'bold'
             }}>
-              {result === 'WIN' && '⚡ YOU WIN ⚡'}
+              {result === 'WIN' && '🎉 YOU WIN 🎉'}
               {result === 'LOSE' && '💥 YOU LOSE 💥'}
               {result === 'DRAW' && '🤝 DRAW 🤝'}
             </div>
-            <div style={{ fontSize: '18px', marginBottom: '20px', color: '#00FFFF' }}>
-              You chose: <span style={{ color: '#00FF00', fontWeight: 'bold' }}>{playerChoice}</span>
+            <div style={{ fontSize: '16px', marginBottom: '15px', color: '#1A2332' }}>
+              You chose: <span style={{ color: '#FFD700', fontWeight: 'bold' }}>{playerChoice}</span>
             </div>
-            <div style={{ fontSize: '18px', marginBottom: '30px', color: '#00FFFF' }}>
-              Computer chose: <span style={{ color: '#FF00FF', fontWeight: 'bold' }}>{computerChoice}</span>
+            <div style={{ fontSize: '16px', marginBottom: '30px', color: '#1A2332' }}>
+              Computer chose: <span style={{ color: '#9B8B7E', fontWeight: 'bold' }}>{computerChoice}</span>
             </div>
             <button onClick={reset} style={{
-              borderColor: '#00FF00',
-              color: '#00FF00'
+              borderColor: '#FFD700',
+              color: '#1A2332',
+              backgroundColor: 'rgba(255, 215, 0, 0.2)'
             }}>
               PLAY AGAIN
             </button>
