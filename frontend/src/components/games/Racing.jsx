@@ -4,32 +4,26 @@ export default function Racing({ game, user, gameMode, onExit }) {
   const canvasRef = useRef(null);
   const [gameState, setGameState] = useState('ready');
   const keysPressed = useRef({});
-  const [scores, setScores] = useState({ player: 0, ai: 0 });
 
-  // Game objects
   const gameRef = useRef({
     player: {
-      x: 1100,
+      x: 200,
       y: 400,
-      angle: -Math.PI / 2,
-      vx: 0,
-      vy: 0,
+      angle: 0,
       speed: 0,
-      maxSpeed: 5,
-      acceleration: 0.2,
+      maxSpeed: 8,
+      friction: 0.92,
       width: 20,
       height: 30,
       color: '#FFD700'
     },
     ai: {
-      x: 1100,
-      y: 450,
-      angle: -Math.PI / 2,
-      vx: 0,
-      vy: 0,
+      x: 260,
+      y: 400,
+      angle: 0,
       speed: 0,
-      maxSpeed: 3.5,
-      acceleration: 0.15,
+      maxSpeed: 6,
+      friction: 0.92,
       width: 20,
       height: 30,
       color: '#FF8C00'
@@ -38,141 +32,100 @@ export default function Racing({ game, user, gameMode, onExit }) {
     finished: null
   });
 
-  // O-shaped track with outer and inner oval walls
-  const generateOvalWalls = () => {
-    const walls = [];
-    const centerX = 600;
-    const centerY = 400;
-    const outerRadiusX = 500;
-    const outerRadiusY = 300;
-    const innerRadiusX = 300;
-    const innerRadiusY = 180;
-    
-    // Outer oval
-    const outerSegments = 120;
-    for (let i = 0; i < outerSegments; i++) {
-      const angle1 = (i / outerSegments) * Math.PI * 2;
-      const angle2 = ((i + 1) / outerSegments) * Math.PI * 2;
-      const x1 = centerX + Math.cos(angle1) * outerRadiusX;
-      const y1 = centerY + Math.sin(angle1) * outerRadiusY;
-      const x2 = centerX + Math.cos(angle2) * outerRadiusX;
-      const y2 = centerY + Math.sin(angle2) * outerRadiusY;
-      walls.push({ x1, y1, x2, y2 });
-    }
-    
-    // Inner oval
-    const innerSegments = 120;
-    for (let i = 0; i < innerSegments; i++) {
-      const angle1 = (i / innerSegments) * Math.PI * 2;
-      const angle2 = ((i + 1) / innerSegments) * Math.PI * 2;
-      const x1 = centerX + Math.cos(angle1) * innerRadiusX;
-      const y1 = centerY + Math.sin(angle1) * innerRadiusY;
-      const x2 = centerX + Math.cos(angle2) * innerRadiusX;
-      const y2 = centerY + Math.sin(angle2) * innerRadiusY;
-      walls.push({ x1, y1, x2, y2 });
-    }
-    
-    return walls;
-  };
+  // Simple rectangular track - road is the drivable area
+  const ROAD_LEFT = 150;
+  const ROAD_RIGHT = 1050;
+  const ROAD_TOP = 100;
+  const ROAD_BOTTOM = 700;
+  const WALL_THICKNESS = 30;
 
-  const walls = generateOvalWalls();
-  const checkpointBox = { x: 1050, y: 350, w: 100, h: 100 };
+  // Checkpoint lines to detect lap completion
+  const checkpointY = 400;
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       keysPressed.current[e.key.toLowerCase()] = true;
     };
-
     const handleKeyUp = (e) => {
       keysPressed.current[e.key.toLowerCase()] = false;
     };
-
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
 
-  const checkCollision = (car) => {
-    const carLeft = car.x - car.width / 2;
-    const carRight = car.x + car.width / 2;
-    const carTop = car.y - car.height / 2;
-    const carBottom = car.y + car.height / 2;
+  const isInWall = (x, y, width, height) => {
+    const left = x - width / 2;
+    const right = x + width / 2;
+    const top = y - height / 2;
+    const bottom = y + height / 2;
 
-    for (let wall of walls) {
-      // Simple line collision - if car center crosses wall line
-      const dx = wall.x2 - wall.x1;
-      const dy = wall.y2 - wall.y1;
-      const px = car.x - wall.x1;
-      const py = car.y - wall.y1;
+    // Top wall
+    if (top < ROAD_TOP + WALL_THICKNESS && y < ROAD_TOP + 100) return true;
+    // Bottom wall
+    if (bottom > ROAD_BOTTOM - WALL_THICKNESS && y > ROAD_BOTTOM - 100) return true;
+    // Left wall
+    if (left < ROAD_LEFT + WALL_THICKNESS && x < ROAD_LEFT + 150) return true;
+    // Right wall
+    if (right > ROAD_RIGHT - WALL_THICKNESS && x > ROAD_RIGHT - 150) return true;
 
-      const t = Math.max(0, Math.min(1, (px * dx + py * dy) / (dx * dx + dy * dy)));
-      const nearestX = wall.x1 + t * dx;
-      const nearestY = wall.y1 + t * dy;
-
-      const distX = car.x - nearestX;
-      const distY = car.y - nearestY;
-      const distance = Math.sqrt(distX * distX + distY * distY);
-
-      if (distance < 15) {
-        return true;
-      }
-    }
     return false;
   };
 
   const updateCar = (car, controls) => {
+    // Acceleration/braking
     if (controls.forward) {
-      car.speed = Math.min(car.speed + car.acceleration, car.maxSpeed);
+      car.speed = Math.min(car.speed + 0.4, car.maxSpeed);
     } else if (controls.backward) {
-      car.speed = Math.max(car.speed - car.acceleration, -car.maxSpeed * 0.5);
+      car.speed = Math.max(car.speed - 0.4, -car.maxSpeed * 0.4);
     } else {
-      car.speed *= 0.95;
+      car.speed *= car.friction;
     }
 
-    if (controls.left) {
-      car.angle -= 0.1;
+    // Steering
+    if (controls.left && car.speed !== 0) {
+      car.angle -= 0.08;
     }
-    if (controls.right) {
-      car.angle += 0.1;
+    if (controls.right && car.speed !== 0) {
+      car.angle += 0.08;
     }
 
+    // Update position
     const newX = car.x + Math.cos(car.angle) * car.speed;
     const newY = car.y + Math.sin(car.angle) * car.speed;
 
-    // Create temporary car to test collision
-    const testCar = { ...car, x: newX, y: newY };
-    if (!checkCollision(testCar)) {
+    // Collision detection - bounce back
+    if (isInWall(newX, newY, car.width, car.height)) {
+      car.speed *= -0.6;
+    } else {
       car.x = newX;
       car.y = newY;
-    } else {
-      car.speed *= -0.5;
     }
 
-    // Check lap
-    if (
-      car.x > checkpointBox.x &&
-      car.x < checkpointBox.x + checkpointBox.w &&
-      car.y > checkpointBox.y &&
-      car.y < checkpointBox.y + checkpointBox.h
-    ) {
-      if (!car.lastCheckpoint) {
+    // Keep in bounds
+    car.x = Math.max(ROAD_LEFT + 20, Math.min(ROAD_RIGHT - 20, car.x));
+    car.y = Math.max(ROAD_TOP + 20, Math.min(ROAD_BOTTOM - 20, car.y));
+
+    // Lap detection - crossing the middle checkpoint
+    if (car.lastY !== undefined) {
+      const crossedCheckpoint = 
+        (car.lastY < checkpointY && car.y >= checkpointY) ||
+        (car.lastY > checkpointY && car.y <= checkpointY);
+      
+      if (crossedCheckpoint && Math.abs(car.x - 600) < 300) {
         car.laps++;
-        car.lastCheckpoint = true;
       }
-    } else {
-      car.lastCheckpoint = false;
     }
+    car.lastY = car.y;
   };
 
   useEffect(() => {
     const gameLoop = () => {
       const g = gameRef.current;
 
-      // Update player
       updateCar(g.player, {
         forward: keysPressed.current['w'] || keysPressed.current['arrowup'],
         backward: keysPressed.current['s'] || keysPressed.current['arrowdown'],
@@ -180,17 +133,25 @@ export default function Racing({ game, user, gameMode, onExit }) {
         right: keysPressed.current['d'] || keysPressed.current['arrowright']
       });
 
-      // Update AI
       if (gameMode === 'pve') {
+        // Simple AI - follow a waypoint and avoid walls
+        const aiTarget = 600;
+        if (g.ai.x < aiTarget - 50) {
+          g.ai.angle = g.ai.angle * 0.9 + 0 * 0.1;
+        } else if (g.ai.x > aiTarget + 50) {
+          g.ai.angle = g.ai.angle * 0.9 + Math.PI * 0.1;
+        }
+        g.ai.speed = 4;
+        
         updateCar(g.ai, {
           forward: true,
           backward: false,
-          left: Math.random() < 0.15,
-          right: Math.random() < 0.15
+          left: false,
+          right: false
         });
       }
 
-      // Check if someone finished (3 laps)
+      // Check win condition
       if (g.player.laps >= 3 && !g.finished) {
         g.finished = 'player';
         setGameState('finished');
@@ -206,35 +167,36 @@ export default function Racing({ game, user, gameMode, onExit }) {
         ctx.fillStyle = '#FFF8DC';
         ctx.fillRect(0, 0, 1200, 800);
 
-        // Draw checkpoint
-        ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
-        ctx.fillRect(checkpointBox.x, checkpointBox.y, checkpointBox.w, checkpointBox.h);
-        ctx.strokeStyle = '#DAA520';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(checkpointBox.x, checkpointBox.y, checkpointBox.w, checkpointBox.h);
+        // Draw road
+        ctx.fillStyle = '#E8D4A8';
+        ctx.fillRect(ROAD_LEFT, ROAD_TOP, ROAD_RIGHT - ROAD_LEFT, ROAD_BOTTOM - ROAD_TOP);
 
         // Draw walls
-        ctx.strokeStyle = '#8B6F47';
+        ctx.fillStyle = '#8B6F47';
+        ctx.fillRect(0, 0, 1200, ROAD_TOP); // Top
+        ctx.fillRect(0, ROAD_BOTTOM, 1200, 800); // Bottom
+        ctx.fillRect(0, ROAD_TOP, ROAD_LEFT, ROAD_BOTTOM - ROAD_TOP); // Left
+        ctx.fillRect(ROAD_RIGHT, ROAD_TOP, 1200 - ROAD_RIGHT, ROAD_BOTTOM - ROAD_TOP); // Right
+
+        // Draw checkpoint line
+        ctx.strokeStyle = '#DAA520';
         ctx.lineWidth = 3;
-        for (let wall of walls) {
-          ctx.beginPath();
-          ctx.moveTo(wall.x1, wall.y1);
-          ctx.lineTo(wall.x2, wall.y2);
-          ctx.stroke();
-        }
+        ctx.setLineDash([10, 10]);
+        ctx.beginPath();
+        ctx.moveTo(ROAD_LEFT + 50, checkpointY);
+        ctx.lineTo(ROAD_RIGHT - 50, checkpointY);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
         // Draw cars
         const drawCar = (car) => {
           ctx.save();
           ctx.translate(car.x, car.y);
           ctx.rotate(car.angle);
-
           ctx.fillStyle = car.color;
           ctx.fillRect(-car.width / 2, -car.height / 2, car.width, car.height);
-
           ctx.fillStyle = '#000000';
           ctx.fillRect(-car.width / 2, -car.height / 2, car.width, 8);
-
           ctx.restore();
         };
 
@@ -243,13 +205,15 @@ export default function Racing({ game, user, gameMode, onExit }) {
           drawCar(g.ai);
         }
 
-        // Draw lap info
+        // Draw HUD
         ctx.fillStyle = '#000000';
-        ctx.font = '14px IBM Plex Mono';
-        ctx.fillText(`Player Laps: ${g.player.laps}`, 10, 30);
+        ctx.font = '16px IBM Plex Mono';
+        ctx.fillText(`You: ${g.player.laps} laps`, 20, 35);
         if (gameMode === 'pve') {
-          ctx.fillText(`AI Laps: ${g.ai.laps}`, 10, 50);
+          ctx.fillText(`AI: ${g.ai.laps} laps`, 20, 60);
         }
+        ctx.font = '12px IBM Plex Mono';
+        ctx.fillText('Speed: First to 3 laps', 20, 800 - 10);
       }
 
       requestAnimationFrame(gameLoop);
@@ -261,8 +225,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
   const resetGame = () => {
     gameRef.current = {
-      player: { ...gameRef.current.player, x: 1100, y: 400, angle: -Math.PI / 2, speed: 0, laps: 0 },
-      ai: { ...gameRef.current.ai, x: 1100, y: 450, angle: -Math.PI / 2, speed: 0, laps: 0 },
+      player: { ...gameRef.current.player, x: 200, y: 400, angle: 0, speed: 0, laps: 0, lastY: undefined },
+      ai: { ...gameRef.current.ai, x: 260, y: 400, angle: 0, speed: 0, laps: 0, lastY: undefined },
       finished: null
     };
     setGameState('ready');
@@ -271,7 +235,7 @@ export default function Racing({ game, user, gameMode, onExit }) {
   return (
     <div className="flex-column" style={{ width: '100%', height: '100%', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 className="glow-text-lime">🏎️ CIRCUIT RACING {gameMode === 'pve' ? '(vs AI)' : '(Race)'}</h2>
+        <h2>🏎️ CIRCUIT RACING {gameMode === 'pve' ? '(vs AI)' : '(Race)'}</h2>
         <button onClick={onExit} style={{ borderColor: '#8B4513', color: '#000000' }}>
           EXIT
         </button>
@@ -297,8 +261,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
         />
 
         <div style={{ fontSize: '14px', color: '#000000', textAlign: 'center' }}>
-          <div><strong>W/↑</strong> Forward | <strong>S/↓</strong> Backward | <strong>A/←</strong> Left | <strong>D/→</strong> Right</div>
-          <div>First to 3 laps wins!</div>
+          <div><strong>W/↑</strong> Forward | <strong>S/↓</strong> Brake | <strong>A/←</strong> Left | <strong>D/→</strong> Right</div>
+          <div>Cross the dashed line to count a lap. First to 3 laps wins!</div>
         </div>
       </div>
 
