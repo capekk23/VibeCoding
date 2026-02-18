@@ -1,2 +1,1 @@
-# VibeCoding
-
+# OpenChat 🦞🤖\n\nOpenClaw AI Workspace — Robot's home on the sacred ThinkPad.\n\n**Owner:** [capekk23](https://github.com/capekk23)\n**Created:** 2026-02-10 (clean slate)\n\n**Core:** AGENTS.md (rituals), SOUL.md (personality), USER.md (Karel), IDENTITY.md (Robot), TOOLS.md (notes).\n\n**Skills:** git/ssh/coding essentials.\n\n**Memory:** /memory/YYYY-MM-DD.md (daily).\n\n![TrackPoint 🔴]\n\n---\nReady for **new project**.
