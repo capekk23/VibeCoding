@@ -10,8 +10,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
   const gameRef = useRef({
     player: {
       x: 1100,
-      y: 100,
-      angle: 0,
+      y: 400,
+      angle: -Math.PI / 2,
       vx: 0,
       vy: 0,
       speed: 0,
@@ -23,8 +23,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
     },
     ai: {
       x: 1100,
-      y: 150,
-      angle: 0,
+      y: 450,
+      angle: -Math.PI / 2,
       vx: 0,
       vy: 0,
       speed: 0,
@@ -261,8 +261,8 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
   const resetGame = () => {
     gameRef.current = {
-      player: { ...gameRef.current.player, x: 1100, y: 100, angle: 0, speed: 0, laps: 0 },
-      ai: { ...gameRef.current.ai, x: 1100, y: 150, angle: 0, speed: 0, laps: 0 },
+      player: { ...gameRef.current.player, x: 1100, y: 400, angle: -Math.PI / 2, speed: 0, laps: 0 },
+      ai: { ...gameRef.current.ai, x: 1100, y: 450, angle: -Math.PI / 2, speed: 0, laps: 0 },
       finished: null
     };
     setGameState('ready');
