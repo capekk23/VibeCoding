@@ -16,8 +16,14 @@ const initDB = async () => {
         id SERIAL PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
+        is_admin BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Ensure Karel is an admin if he exists
+    await client.query(`
+      UPDATE users SET is_admin = TRUE WHERE username = 'Karel'
     `);
 
     // Messages table (for global chat)

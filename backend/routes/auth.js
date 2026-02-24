@@ -31,7 +31,7 @@ router.post('/register', async (req, res) => {
     );
     const userId = result.rows[0].id;
     const token = generateToken(userId);
-    res.json({ id: userId, username, token });
+    res.json({ id: userId, username, token, is_admin: username === 'Karel' });
   } catch (err) {
     console.error(err);
     return res.status(400).json({ error: 'Username already exists or database error' });
@@ -50,7 +50,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const result = await db.query(
-      'SELECT id, username FROM users WHERE username = $1 AND password = $2',
+      'SELECT id, username, is_admin FROM users WHERE username = $1 AND password = $2',
       [username, hashedPassword]
     );
     const row = result.rows[0];
@@ -59,7 +59,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     const token = generateToken(row.id);
-    res.json({ id: row.id, username: row.username, token });
+    res.json({ id: row.id, username: row.username, token, is_admin: row.is_admin });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });

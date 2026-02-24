@@ -16,6 +16,7 @@ const messagesRoutes = require('./routes/messages');
 const gamesRoutes = require('./routes/games');
 const roomsRoutes = require('./routes/rooms');
 const dmRoutes = require('./routes/dm');
+const adminRoutes = require('./routes/admin');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -23,6 +24,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/games', gamesRoutes);
 app.use('/api/rooms', roomsRoutes);
 app.use('/api/dm', dmRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Serve static files from public directory (built frontend)
 app.use(express.static(path.join(__dirname, '../public')));

@@ -2,16 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function DirectMessages({ user }) {
   const [conversations, setConversations] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // All users for searching
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [showUserList, setShowUserList] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(''); // New state for search input
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     fetchConversations();
-    fetchUsers();
+    fetchAllUsers(); // Fetch all users for search
     const interval = setInterval(fetchConversations, 2000);
     return () => clearInterval(interval);
   }, []);
@@ -40,15 +40,15 @@ export default function DirectMessages({ user }) {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchAllUsers = async () => { // Renamed from fetchUsers
     try {
       const response = await fetch('/api/dm/users');
       if (response.ok) {
         const data = await response.json();
-        setUsers(data.filter(u => u.id !== user.id));
+        setAllUsers(data.filter(u => u.id !== user.id));
       }
     } catch (err) {
-      console.error('Error fetching users:', err);
+      console.error('Error fetching all users:', err);
     }
   };
 
@@ -99,79 +99,102 @@ export default function DirectMessages({ user }) {
 
   const selectUser = (u) => {
     setSelectedUser(u);
-    setShowUserList(false);
+    setSearchQuery(''); // Clear search when a user is selected
     fetchMessages(u.id);
   };
 
+  // Filtered users for the search input
+  const filteredUsers = allUsers.filter(u =>
+    u.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-      {/* Conversations list */}
+      {/* Conversations list and User search */}
       <div style={{
         width: '300px',
         borderRight: '2px solid #A39E94',
         overflowY: 'auto',
         padding: '15px',
-        backgroundColor: 'rgba(255, 255, 255, 0.85)'
+        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        display: 'flex',
+        flexDirection: 'column' // Added to control flex direction
       }}>
         <h3 className="glow-text" style={{ marginBottom: '15px' }}>MESSAGES</h3>
 
+        {/* User Search Input */}
+        <input
+          type="text"
+          placeholder="SEARCH USERS..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ marginBottom: '15px', padding: '8px', borderRadius: '4px', border: '1px solid #A39E94' }}
+        />
+
+        <div style={{ flex: 1, overflowY: 'auto' }}> {/* Scrollable area for lists */}
+          {searchQuery ? (
+            // Display filtered users when search query is active
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {filteredUsers.length > 0 ? (
+                filteredUsers.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => selectUser(u)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      borderColor: '#A39E94',
+                      color: '#1A2332',
+                      backgroundColor: 'white',
+                      borderRadius: 0,
+                      borderBottom: '1px solid #A39E94'
+                    }}
+                  >
+                    👤 {u.username}
+                  </button>
+                ))
+              ) : (
+                <div style={{ textAlign: 'center', color: '#666' }}>No users found.</div>
+              )}
+            </div>
+          ) : (
+            // Display existing conversations by default
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {conversations.map((conv) => (
+                <button
+                  key={conv.user_id}
+                  onClick={() => selectUser(conv)}
+                  style={{
+                    textAlign: 'left',
+                    borderColor: selectedUser?.id === conv.user_id ? '#FFD700' : '#A39E94',
+                    color: '#1A2332',
+                    backgroundColor: selectedUser?.id === conv.user_id ? 'rgba(255, 215, 0, 0.2)' : 'white'
+                  }}
+                >
+                  💬 {conv.username}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* "New Message" button moved to the bottom */}
         <button
-          onClick={() => setShowUserList(!showUserList)}
+          onClick={() => {
+            // Optionally, clear selection and focus search to start a new convo
+            setSelectedUser(null);
+            setSearchQuery(''); // Clear search to show existing convos, or could set a default
+          }}
           style={{
             width: '100%',
-            marginBottom: '15px',
+            marginTop: '15px', // Add margin to push it down
             borderColor: '#FFD700',
             color: '#1A2332',
             backgroundColor: 'rgba(255, 215, 0, 0.2)'
           }}
         >
-          ➕ NEW MESSAGE
+          ➕ NEW CONVERSATION
         </button>
-
-        {showUserList && (
-          <div style={{
-            marginBottom: '15px',
-            maxHeight: '200px',
-            overflowY: 'auto',
-            borderRadius: '4px',
-            border: '1.5px solid #A39E94'
-          }}>
-            {users.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => selectUser(u)}
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  borderColor: '#A39E94',
-                  color: '#1A2332',
-                  backgroundColor: 'white',
-                  borderRadius: 0,
-                  borderBottom: '1px solid #A39E94'
-                }}
-              >
-                👤 {u.username}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {conversations.map((conv) => (
-            <button
-              key={conv.user_id}
-              onClick={() => selectUser(conv)}
-              style={{
-                textAlign: 'left',
-                borderColor: selectedUser?.id === conv.user_id ? '#FFD700' : '#A39E94',
-                color: '#1A2332',
-                backgroundColor: selectedUser?.id === conv.user_id ? 'rgba(255, 215, 0, 0.2)' : 'white'
-              }}
-            >
-              💬 {conv.username}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Messages area */}
@@ -260,7 +283,7 @@ export default function DirectMessages({ user }) {
             textAlign: 'center',
             fontSize: '18px'
           }}>
-            SELECT A CONVERSATION
+            SELECT A CONVERSATION OR START A NEW ONE
           </div>
         )}
       </div>
