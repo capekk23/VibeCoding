@@ -15,7 +15,7 @@ const generateToken = (userId) => {
 };
 
 // Register
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -24,21 +24,22 @@ router.post('/register', (req, res) => {
 
   const hashedPassword = hashPassword(password);
 
-  db.run(
-    'INSERT INTO users (username, password) VALUES (?, ?)',
-    [username, hashedPassword],
-    function(err) {
-      if (err) {
-        return res.status(400).json({ error: 'Username already exists' });
-      }
-      const token = generateToken(this.lastID);
-      res.json({ id: this.lastID, username, token });
-    }
-  );
+  try {
+    const result = await db.query(
+      'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id',
+      [username, hashedPassword]
+    );
+    const userId = result.rows[0].id;
+    const token = generateToken(userId);
+    res.json({ id: userId, username, token });
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({ error: 'Username already exists or database error' });
+  }
 });
 
 // Login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -47,17 +48,22 @@ router.post('/login', (req, res) => {
 
   const hashedPassword = hashPassword(password);
 
-  db.get(
-    'SELECT id, username FROM users WHERE username = ? AND password = ?',
-    [username, hashedPassword],
-    (err, row) => {
-      if (err || !row) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-      const token = generateToken(row.id);
-      res.json({ id: row.id, username: row.username, token });
+  try {
+    const result = await db.query(
+      'SELECT id, username FROM users WHERE username = $1 AND password = $2',
+      [username, hashedPassword]
+    );
+    const row = result.rows[0];
+
+    if (!row) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
-  );
+    const token = generateToken(row.id);
+    res.json({ id: row.id, username: row.username, token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 module.exports = router;

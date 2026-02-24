@@ -8,55 +8,55 @@ const router = express.Router();
 const raceSessions = {};
 
 // Create a new game
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { game_type, player1_id } = req.body;
 
   if (!game_type || !player1_id) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  db.run(
-    'INSERT INTO games (game_type, player1_id, state) VALUES (?, ?, ?)',
-    [game_type, player1_id, '{}'],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to create game' });
-      }
-      res.json({ id: this.lastID, game_type, player1_id });
-    }
-  );
+  try {
+    const result = await db.query(
+      'INSERT INTO games (game_type, player1_id, state) VALUES ($1, $2, $3) RETURNING id',
+      [game_type, player1_id, '{}']
+    );
+    res.json({ id: result.rows[0].id, game_type, player1_id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create game' });
+  }
 });
 
 // Get active games
-router.get('/', (req, res) => {
-  db.all(
-    'SELECT id, game_type, player1_id, player2_id, winner_id FROM games WHERE winner_id IS NULL ORDER BY created_at DESC',
-    [],
-    (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to fetch games' });
-      }
-      res.json(rows || []);
-    }
-  );
+router.get('/', async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT id, game_type, player1_id, player2_id, winner_id FROM games WHERE winner_id IS NULL ORDER BY created_at DESC'
+    );
+    res.json(result.rows || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch games' });
+  }
 });
 
 // Get game by ID
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   const { id } = req.params;
-  db.get(
-    'SELECT * FROM games WHERE id = ?',
-    [id],
-    (err, row) => {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to fetch game' });
-      }
-      if (!row) {
-        return res.status(404).json({ error: 'Game not found' });
-      }
-      res.json(row);
+  try {
+    const result = await db.query(
+      'SELECT * FROM games WHERE id = $1',
+      [id]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return res.status(404).json({ error: 'Game not found' });
     }
-  );
+    res.json(row);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch game' });
+  }
 });
 
 // Multiplayer Racing - Create session
