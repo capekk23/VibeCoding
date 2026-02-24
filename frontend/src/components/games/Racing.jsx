@@ -128,12 +128,20 @@ export default function Racing({ game, user, gameMode, onExit }) {
     initGame();
   }, [gameMode, user]);
 
+  const opponentsRef = useRef([]);
+
+  // Update opponents ref when state changes
   useEffect(() => {
-    if (!sessionId && gameMode === 'pvp') return;
+    opponentsRef.current = opponents;
+  }, [opponents]);
+
+  useEffect(() => {
+    if (gameMode === 'pvp' && !sessionId) return;
 
     const g = gameRef.current;
+    let lastUpdate = 0;
 
-    const gameLoop = () => {
+    const gameLoop = (time) => {
       if (!g.running) return;
 
       const canvas = canvasRef.current;
@@ -144,6 +152,7 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
       const ctx = canvas.getContext('2d');
 
+      // ... existing game logic ...
       // Handle input - smooth movement
       if (keysPressed.current[37] || keysPressed.current[65]) {
         g.myCarX = Math.max(ROAD_LEFT + CAR_WIDTH / 2, g.myCarX - 5);
@@ -156,23 +165,16 @@ export default function Racing({ game, user, gameMode, onExit }) {
       g.bgY1 += g.baseSpeed;
       g.bgY2 += g.baseSpeed;
 
-      if (g.bgY1 >= CANVAS_HEIGHT) {
-        g.bgY1 = -CANVAS_HEIGHT;
-      }
-      if (g.bgY2 >= CANVAS_HEIGHT) {
-        g.bgY2 = -CANVAS_HEIGHT;
-      }
+      if (g.bgY1 >= CANVAS_HEIGHT) g.bgY1 = -CANVAS_HEIGHT;
+      if (g.bgY2 >= CANVAS_HEIGHT) g.bgY2 = -CANVAS_HEIGHT;
 
-      // Exponential speed growth with cap
       g.score += 0.1;
       g.baseSpeed = 2 + Math.min(g.score * 0.0015, 15);
 
-      // Regenerate obstacles if needed
       if (g.obstacles.length === 0) {
         g.obstacles = generateObstacles(g.seed, g.score);
       }
 
-      // Update obstacles
       for (let i = g.obstacles.length - 1; i >= 0; i--) {
         g.obstacles[i].y += g.baseSpeed;
         if (g.obstacles[i].y > CANVAS_HEIGHT + 50) {
@@ -181,22 +183,14 @@ export default function Racing({ game, user, gameMode, onExit }) {
         }
       }
 
-      // Add new obstacles periodically
       if (Math.random() < 0.02 && g.obstacles.length < 10) {
         const lane = Math.floor(Math.random() * NUM_LANES);
         const laneX = ROAD_LEFT + lane * LANE_WIDTH + LANE_WIDTH / 2;
         const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-        g.obstacles.push({
-          x: laneX,
-          y: -100,
-          color,
-          id: Math.random()
-        });
+        g.obstacles.push({ x: laneX, y: -100, color, id: Math.random() });
       }
 
-      // AI logic - simple dodging
       if (gameMode === 'pve') {
-        // Find nearest obstacle
         let nearestObs = null;
         let nearestDist = Infinity;
         for (let obs of g.obstacles) {
@@ -208,78 +202,52 @@ export default function Racing({ game, user, gameMode, onExit }) {
             }
           }
         }
-
-        // Dodge if obstacle is too close
         if (nearestObs && nearestDist < 80) {
-          if (nearestObs.x > g.aiCarX) {
-            g.aiCarX = Math.min(ROAD_RIGHT - CAR_WIDTH / 2, g.aiCarX + 4);
-          } else {
-            g.aiCarX = Math.max(ROAD_LEFT + CAR_WIDTH / 2, g.aiCarX - 4);
-          }
+          if (nearestObs.x > g.aiCarX) g.aiCarX = Math.min(ROAD_RIGHT - CAR_WIDTH / 2, g.aiCarX + 4);
+          else g.aiCarX = Math.max(ROAD_LEFT + CAR_WIDTH / 2, g.aiCarX - 4);
         } else {
-          // Move toward center
-          if (g.aiCarX < CANVAS_WIDTH / 2 - 5) {
-            g.aiCarX += 2;
-          } else if (g.aiCarX > CANVAS_WIDTH / 2 + 5) {
-            g.aiCarX -= 2;
-          }
+          if (g.aiCarX < CANVAS_WIDTH / 2 - 5) g.aiCarX += 2;
+          else if (g.aiCarX > CANVAS_WIDTH / 2 + 5) g.aiCarX -= 2;
         }
       }
 
-      // Draw
       ctx.fillStyle = '#8B6F47';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
       drawRoad(ctx, g.bgY1);
       drawRoad(ctx, g.bgY2);
 
-      // Draw obstacles
       let hitObstacle = false;
       for (let obs of g.obstacles) {
         drawCar(ctx, obs.x, obs.y, obs.color);
-
-        // Collision detection
-        if (
-          Math.abs(obs.x - g.myCarX) < 35 &&
-          Math.abs(obs.y - g.myCarY) < 40
-        ) {
-          hitObstacle = true;
-        }
+        if (Math.abs(obs.x - g.myCarX) < 35 && Math.abs(obs.y - g.myCarY) < 40) hitObstacle = true;
       }
 
-      // Draw player car (full opacity)
       drawCar(ctx, g.myCarX, g.myCarY, '#FFD700', 1);
-
-      // Draw AI car if PvE
-      if (gameMode === 'pve') {
-        drawCar(ctx, g.aiCarX, g.myCarY, '#FF1493', 0.5);
-      }
-
-      // Draw opponent ghosts if PvP
-      if (gameMode === 'pvp' && opponents.length > 0) {
-        opponents.forEach((opp, idx) => {
+      if (gameMode === 'pve') drawCar(ctx, g.aiCarX, g.myCarY, '#FF1493', 0.5);
+      
+      if (gameMode === 'pvp' && opponentsRef.current.length > 0) {
+        opponentsRef.current.forEach((opp, idx) => {
           drawCar(ctx, opp.x, g.myCarY, COLORS[idx % COLORS.length], 0.3);
         });
       }
 
-      // Draw HUD
       ctx.fillStyle = '#000000';
       ctx.font = '13px IBM Plex Mono';
       ctx.fillText(`Distance: ${Math.floor(g.score)}`, 10, 20);
       ctx.fillText(`Avoided: ${g.carAvoided}`, 10, 38);
       ctx.fillText(`Speed: ${g.baseSpeed.toFixed(1)}`, 10, 56);
 
-      setScore(Math.floor(g.score));
-      setCarAvoided(g.carAvoided);
-
       if (hitObstacle) {
         g.running = false;
+        setScore(Math.floor(g.score));
+        setCarAvoided(g.carAvoided);
         setGameState('finished');
         return;
       }
 
-      // Send update to server if PvP
-      if (gameMode === 'pvp' && g.sessionId) {
+      // Send update to server if PvP (throttle to ~30fps)
+      if (gameMode === 'pvp' && g.sessionId && time - lastUpdate > 33) {
+        lastUpdate = time;
         fetch('/api/games/race/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -303,7 +271,7 @@ export default function Racing({ game, user, gameMode, onExit }) {
 
     const rafId = requestAnimationFrame(gameLoop);
     return () => cancelAnimationFrame(rafId);
-  }, [gameMode, user, opponents]);
+  }, [gameMode, user, sessionId]);
 
   const resetGame = () => {
     gameRef.current = {

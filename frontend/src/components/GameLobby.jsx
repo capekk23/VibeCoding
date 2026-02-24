@@ -6,9 +6,10 @@ import Racing from './games/Racing';
 import GameOfLife from './games/GameOfLife';
 
 export default function GameLobby({ user }) {
-  const [view, setView] = useState('games'); // 'games', 'modeselect', 'playing'
+  const [view, setView] = useState('games'); // 'games', 'modeselect', 'playing', 'lobby'
   const [selectedGame, setSelectedGame] = useState(null);
   const [selectedGameType, setSelectedGameType] = useState(null);
+  const [activeGames, setActiveGames] = useState([]);
 
   const gameList = [
     { id: 'tictactoe', name: 'Tic Tac Toe', emoji: '🎯', color: '#FF6B6B' },
@@ -18,9 +19,32 @@ export default function GameLobby({ user }) {
     { id: 'gameoflife', name: 'Game of Life', emoji: '🧬', color: '#98D8C8' }
   ];
 
+  useEffect(() => {
+    if (view === 'lobby') {
+      fetchActiveGames();
+      const interval = setInterval(fetchActiveGames, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [view]);
+
+  const fetchActiveGames = async () => {
+    try {
+      const res = await fetch('/api/games');
+      const data = await res.json();
+      setActiveGames(data);
+    } catch (err) {
+      console.error('Failed to fetch active games', err);
+    }
+  };
+
   const selectGame = (gameId) => {
-    setSelectedGameType(gameId);
-    setView('modeselect');
+    if (gameId === 'gameoflife') {
+      setSelectedGame({ game_type: 'gameoflife', player1_id: user.id, mode: 'simulation' });
+      setView('playing');
+    } else {
+      setSelectedGameType(gameId);
+      setView('modeselect');
+    }
   };
 
   const startGame = (mode) => {
@@ -28,9 +52,28 @@ export default function GameLobby({ user }) {
       setSelectedGame({ game_type: selectedGameType, player1_id: user.id, mode: 'pve' });
       setView('playing');
     } else {
-      setSelectedGame({ game_type: selectedGameType, player1_id: user.id, mode: 'pvp' });
-      setView('playing');
+      setView('lobby');
     }
+  };
+
+  const createGame = async () => {
+    try {
+      const res = await fetch('/api/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_type: selectedGameType, player1_id: user.id })
+      });
+      const newGame = await res.json();
+      setSelectedGame({ ...newGame, mode: 'pvp' });
+      setView('playing');
+    } catch (err) {
+      console.error('Failed to create game', err);
+    }
+  };
+
+  const joinGame = async (game) => {
+    setSelectedGame({ ...game, mode: 'pvp' });
+    setView('playing');
   };
 
   const backToGames = () => {
@@ -60,6 +103,43 @@ export default function GameLobby({ user }) {
           gameMode={selectedGame.mode}
           onExit={exitGame}
         />
+      </div>
+    );
+  }
+
+  if (view === 'lobby') {
+    const gameInfo = gameList.find(g => g.id === selectedGameType);
+    return (
+      <div style={{ width: '100%', height: '100%', padding: '40px', display: 'flex', flexDirection: 'column' }}>
+        <button onClick={() => setView('modeselect')} style={{ alignSelf: 'flex-start', marginBottom: '20px' }}>
+          ← BACK
+        </button>
+        <h2 style={{ textAlign: 'center', marginBottom: '30px' }}>{gameInfo?.emoji} {gameInfo?.name} LOBBY</h2>
+        
+        <div style={{ display: 'flex', gap: '40px', flex: 1 }}>
+          <div style={{ flex: 1, border: '2px solid #C0C0C0', padding: '20px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.5)' }}>
+            <h3>ACTIVE GAMES</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+              {activeGames.filter(g => g.game_type === selectedGameType).length === 0 ? (
+                <div style={{ color: '#666', fontStyle: 'italic' }}>No active games found. Create one!</div>
+              ) : (
+                activeGames.filter(g => g.game_type === selectedGameType).map(g => (
+                  <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', border: '1px solid #C0C0C0', borderRadius: '4px', backgroundColor: 'white' }}>
+                    <span>Game #{g.id} (Host ID: {g.player1_id})</span>
+                    <button onClick={() => joinGame(g)} style={{ backgroundColor: '#98D8C8', borderColor: '#8B4513' }}>JOIN</button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          
+          <div style={{ width: '300px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '20px' }}>
+            <p style={{ textAlign: 'center' }}>Don't see a game? Create a new session and wait for someone to join.</p>
+            <button onClick={createGame} style={{ padding: '20px 40px', fontSize: '18px', backgroundColor: '#FFD700', borderColor: '#8B4513' }}>
+              ➕ CREATE NEW GAME
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
