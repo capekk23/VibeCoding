@@ -1,0 +1,10 @@
+node_modules
+frontend/node_modules
+backend/node_modules
+.git
+.DS_Store
+.env
+app.db
+frontend/dist
+public/*
+!public/assets
