@@ -116,7 +116,7 @@ export default function DirectMessages({ user }) {
         borderRight: '2px solid #A39E94',
         overflowY: 'auto',
         padding: '15px',
-        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        backgroundColor: 'rgba(255, 215, 0, 0.1)', // Changed to a soft yellow
         display: 'flex',
         flexDirection: 'column' // Added to control flex direction
       }}>

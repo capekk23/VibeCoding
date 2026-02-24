@@ -32,7 +32,7 @@ export default function App() {
       {/* Header */}
       <div className="panel panel-magenta" style={{ margin: 0, borderRadius: 0 }}>
         <div className="flex-between">
-          <h1 style={{ margin: 0 }}>📡 DEEP SPACE RELAY 🌌</h1>
+          <h1 style={{ margin: 0 }}>📡 DEEP SPACE RELAY 📡</h1>
           <div>
             <span className="glow-text" style={{ marginRight: '20px' }}>
               USER: {user.username}
